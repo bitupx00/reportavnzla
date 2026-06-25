@@ -76,6 +76,7 @@ interface MapProps {
   zonas?: ZonaAfectada[]
   onSelectPersona?: (id: string) => void
   className?: string
+  focus?: { lat: number; lng: number; key?: number } | null
 }
 
 export default function Map({
@@ -83,10 +84,13 @@ export default function Map({
   zonas = [],
   onSelectPersona,
   className,
+  focus,
 }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const layersRef = useRef<L.LayerGroup>(L.layerGroup())
+  const didFitRef = useRef(false)
+  const [legendOpen, setLegendOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [cursorLat, setCursorLat] = useState<number | null>(null)
   const [cursorLng, setCursorLng] = useState<number | null>(null)
@@ -96,13 +100,25 @@ export default function Map({
     setMounted(true)
   }, [])
 
+  // Centrar el mapa cuando se pide enfocar una persona
+  useEffect(() => {
+    if (focus && mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([focus.lat, focus.lng], 16, { duration: 0.8 })
+    }
+  }, [focus])
+
   useEffect(() => {
     if (!mounted || !mapRef.current || mapInstanceRef.current) return
 
+    // Límites de Venezuela: el mapa no se puede arrastrar ni alejar fuera del país
+    const VEN_BOUNDS = L.latLngBounds([0.6, -73.4], [12.3, -59.8])
     const map = L.map(mapRef.current, {
-      center: [10.0, -67.0],
-      zoom: 7,
+      center: [8.4, -66.4],
+      zoom: 6,
+      minZoom: 6,
       zoomControl: false,
+      maxBounds: VEN_BOUNDS,
+      maxBoundsViscosity: 1.0,
     })
     mapInstanceRef.current = map
 
@@ -210,10 +226,13 @@ export default function Map({
       ...personas.filter(p => p.lat && p.lng).map(p => [p.lat, p.lng] as L.LatLngTuple),
       ...zonas.filter(z => z.lat && z.lng).map(z => [z.lat, z.lng] as L.LatLngTuple),
     ]
-    if (allPoints.length > 0) {
+    // Ajustar la vista SOLO la primera vez que llegan datos (no en cada cambio,
+    // para que al cerrar una ficha el mapa NO se aleje a todo el país).
+    if (allPoints.length > 0 && !didFitRef.current) {
       const bounds = L.latLngBounds(allPoints)
       if (bounds.isValid()) {
         map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 })
+        didFitRef.current = true
       }
     }
   }, [personas, zonas, onSelectPersona])
@@ -239,42 +258,47 @@ export default function Map({
         </div>
       )}
 
-      {/* Legend — above zoom control, not overlapping */}
-      <div className="absolute top-14 right-3 bg-white/95 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 z-[400] overflow-hidden">
-        <div className="text-[10px] font-bold text-gray-500 px-3 py-1.5 bg-gray-50 border-b border-gray-100 uppercase tracking-wide">Leyenda</div>
-        <div className="px-3 py-2 space-y-1.5 text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-red-600 inline-block shrink-0"></span>
-            <span>Buscado</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-yellow-500 inline-block shrink-0"></span>
-            <span>Posible avistamiento</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-green-600 inline-block shrink-0"></span>
-            <span>Encontrado</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3.5 h-3.5 rounded-full bg-gray-500 inline-block shrink-0"></span>
-            <span>Fallecido</span>
-          </div>
-          <div className="border-t border-gray-100 pt-1.5 mt-1.5">
-            <div className="text-[10px] text-gray-400 mb-1">Zonas afectadas</div>
+      {/* Leyenda minimizable (abajo-derecha, fuera del control de zoom) */}
+      <div className="absolute bottom-3 right-3 z-[400]">
+        <button
+          type="button"
+          onClick={() => setLegendOpen((o) => !o)}
+          aria-expanded={legendOpen}
+          className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white/95 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-gray-600 shadow-md hover:bg-white"
+        >
+          Leyenda <span className="text-gray-400">{legendOpen ? '▾' : '▸'}</span>
+        </button>
+        {legendOpen && (
+          <div className="mt-1 space-y-1.5 rounded-lg border border-gray-200 bg-white/95 px-3 py-2 text-[11px] shadow-md backdrop-blur-sm">
             <div className="flex items-center gap-2">
-              <span className="w-3.5 h-3.5 rounded-full border-2 border-red-600 bg-red-600/20 inline-block shrink-0"></span>
-              <span>Crítica</span>
+              <span className="w-3.5 h-3.5 rounded-full bg-red-600 inline-block shrink-0"></span>
+              <span>Buscado</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3.5 h-3.5 rounded-full border-2 border-orange-500 bg-orange-500/15 inline-block shrink-0"></span>
-              <span>Alta</span>
+              <span className="w-3.5 h-3.5 rounded-full bg-green-600 inline-block shrink-0"></span>
+              <span>Encontrado</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3.5 h-3.5 rounded-full border-2 border-yellow-500 bg-yellow-500/10 inline-block shrink-0"></span>
-              <span>Media</span>
+              <span className="w-3.5 h-3.5 rounded-full bg-gray-500 inline-block shrink-0"></span>
+              <span>Fallecido</span>
+            </div>
+            <div className="border-t border-gray-100 pt-1.5">
+              <div className="text-[10px] text-gray-400 mb-1">Zonas afectadas</div>
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-red-600 bg-red-600/20 inline-block shrink-0"></span>
+                <span>Crítica</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-orange-500 bg-orange-500/15 inline-block shrink-0"></span>
+                <span>Alta</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-yellow-500 bg-yellow-500/10 inline-block shrink-0"></span>
+                <span>Media</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
