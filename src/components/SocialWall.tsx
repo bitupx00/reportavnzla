@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 const HASHTAGS = ['ReportaVNZLA', 'TerremotoVenezuela2026', 'VenezuelaTeEncuentra']
 const HT_TAGS = HASHTAGS.map((h) => '#' + h).join(' ')
@@ -20,10 +20,24 @@ interface Post {
 
 function PostEmbed({ url, plataforma }: { url: string; plataforma: string }) {
   if (plataforma === 'x') {
+    const id = (url.match(/status\/(\d+)/) || [])[1]
+    if (!id) {
+      return (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="block break-all text-xs text-blue-600 underline">
+          {url}
+        </a>
+      )
+    }
+    // iframe oficial de X: renderiza el tweet directo (sin flash de link)
     return (
-      <blockquote className="twitter-tweet" data-dnt="true" data-width="100%">
-        <a href={url}>{url}</a>
-      </blockquote>
+      <iframe
+        src={`https://platform.twitter.com/embed/Tweet.html?id=${id}&theme=light&dnt=true`}
+        className="w-full rounded-xl border border-gray-200 bg-white"
+        height={520}
+        loading="lazy"
+        title="Tweet"
+        scrolling="no"
+      />
     )
   }
   if (plataforma === 'instagram') {
@@ -52,7 +66,6 @@ function PostEmbed({ url, plataforma }: { url: string; plataforma: string }) {
 }
 
 export default function SocialWall() {
-  const ref = useRef<HTMLDivElement>(null)
   const [posts, setPosts] = useState<Post[]>([])
   const [url, setUrl] = useState('')
   const [adding, setAdding] = useState(false)
@@ -69,23 +82,6 @@ export default function SocialWall() {
   useEffect(() => {
     load()
   }, [load])
-
-  // (Re)procesar embeds de X cuando cambian los posts
-  useEffect(() => {
-    if (!posts.some((p) => p.plataforma === 'x')) return
-    const id = 'twitter-wjs'
-    const w = window as unknown as { twttr?: { widgets?: { load: (el?: HTMLElement | null) => void } } }
-    if (!document.getElementById(id)) {
-      const s = document.createElement('script')
-      s.id = id
-      s.src = 'https://platform.twitter.com/widgets.js'
-      s.async = true
-      s.onload = () => w.twttr?.widgets?.load(ref.current)
-      document.body.appendChild(s)
-    } else {
-      w.twttr?.widgets?.load(ref.current)
-    }
-  }, [posts])
 
   const addPost = async () => {
     const u = url.trim()
@@ -196,7 +192,7 @@ export default function SocialWall() {
       </div>
 
       {/* Publicaciones agregadas */}
-      <div ref={ref} className="space-y-3">
+      <div className="space-y-3">
         {posts.length === 0 ? (
           <p className="rounded-xl border border-dashed border-gray-200 bg-white p-4 text-center text-xs text-gray-400">
             Sé el primero en compartir una publicación de redes pegando su enlace arriba.
