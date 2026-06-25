@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sqlRaw } from '@/db'
+import { motivoRechazo } from '@/lib/antispam'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,6 +64,8 @@ export async function POST(request: NextRequest) {
     if (!fotoUrl) {
       return NextResponse.json({ error: 'fotoUrl requerido' }, { status: 400 })
     }
+    const motivo = motivoRechazo({ nombre, apellido, descripcion, ultimaUbicacion, reportadoPorNombre: contactoNombre })
+    if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
     await ensureSchema()
     const sql = sqlRaw()
     const est = estado === 'fallecido' ? 'fallecido' : 'encontrado'

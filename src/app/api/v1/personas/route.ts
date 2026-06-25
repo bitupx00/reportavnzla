@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { personas, fuentesDatos } from '@/db/schema'
 import { eq, ilike, or, and, sql, desc, asc } from 'drizzle-orm'
+import { motivoRechazo } from '@/lib/antispam'
 
 export const dynamic = 'force-dynamic'
 
@@ -149,8 +150,24 @@ export async function GET(request: NextRequest) {
 // Supports single or batch (array) inserts
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    let body = await request.json()
     const isBatch = Array.isArray(body)
+
+    // Anti-spam: bloquear fuente/enlaces inyectados
+    const xsrc = request.headers.get('x-source')
+    const esSpam = (r: any) => !!motivoRechazo({ ...r, source: xsrc })
+    if (isBatch) {
+      body = body.filter((r: any) => !esSpam(r))
+      if (body.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Registros rechazados (spam, enlaces o fuente bloqueada)' },
+          { status: 400, headers: corsHeaders }
+        )
+      }
+    } else {
+      const m = motivoRechazo({ ...body, source: xsrc })
+      if (m) return NextResponse.json({ success: false, error: m }, { status: 400, headers: corsHeaders })
+    }
 
     if (isBatch) {
       if (body.length > 100) {

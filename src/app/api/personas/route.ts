@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { personas } from '@/db/schema'
 import { eq, ilike, or, and, sql, desc } from 'drizzle-orm'
+import { motivoRechazo } from '@/lib/antispam'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +73,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+
+    const motivo = motivoRechazo({ ...body, source: request.headers.get('x-source') })
+    if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
 
     const record = {
       nombre: body.nombre,
