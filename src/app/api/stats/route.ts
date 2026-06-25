@@ -8,21 +8,21 @@ export const dynamic = 'force-dynamic'
 // GET /api/stats
 export async function GET() {
   try {
-    const [buscados, encontrados, fallecidos, total] = await Promise.all([
-      db().select({ count: sql<number>`count(*)::int` }).from(personas)
-        .where(sql`${personas.estado} = 'buscado'`),
-      db().select({ count: sql<number>`count(*)::int` }).from(personas)
-        .where(sql`${personas.estado} = 'encontrado'`),
-      db().select({ count: sql<number>`count(*)::int` }).from(personas)
-        .where(sql`${personas.estado} = 'fallecido'`),
-      db().select({ count: sql<number>`count(*)::int` }).from(personas),
-    ])
+    // Single query with CASE WHEN — avoids stale cache from separate queries
+    const [row] = await db()
+      .select({
+        total: sql<number>`count(*)::int`,
+        buscados: sql<number>`count(*)::int FILTER (WHERE ${personas.estado} = 'buscado')`,
+        encontrados: sql<number>`count(*)::int FILTER (WHERE ${personas.estado} = 'encontrado')`,
+        fallecidos: sql<number>`count(*)::int FILTER (WHERE ${personas.estado} = 'fallecido')`,
+      })
+      .from(personas)
 
     return NextResponse.json({
-      total: total[0]?.count || 0,
-      buscados: buscados[0]?.count || 0,
-      encontrados: encontrados[0]?.count || 0,
-      fallecidos: fallecidos[0]?.count || 0,
+      total: row?.total || 0,
+      buscados: row?.buscados || 0,
+      encontrados: row?.encontrados || 0,
+      fallecidos: row?.fallecidos || 0,
     })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
