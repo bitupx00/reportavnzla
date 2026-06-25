@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const bytes = await file.arrayBuffer()
-    const ext = file.name.split('.').pop()
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
     const filename = `${tipo}s/${personaId}/${Date.now()}.${ext}`
 
     const blob = await put(filename, bytes, {
@@ -27,14 +27,23 @@ export async function POST(request: NextRequest) {
       addRandomSuffix: true,
     })
 
-    const [result] = await db().insert(medios).values({
-      personaId,
-      tipo: tipo as 'foto' | 'video',
-      url: blob.url,
-      descripcion: descripcion || null,
-    }).returning()
+    // Solo registrar en `medios` si el personaId es un UUID real (no 'temp').
+    // El blob ya está subido; devolvemos la URL en todos los casos.
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(personaId)
+    if (isUuid) {
+      try {
+        await db().insert(medios).values({
+          personaId,
+          tipo: tipo as 'foto' | 'video',
+          url: blob.url,
+          descripcion: descripcion || null,
+        })
+      } catch {
+        /* no bloquear la subida si falla el registro en medios */
+      }
+    }
 
-    return NextResponse.json(result, { status: 201 })
+    return NextResponse.json({ url: blob.url }, { status: 201 })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

@@ -335,6 +335,9 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
           />
         </section>
 
+        {/* ═══ PERSONAS POR IDENTIFICAR ═══ */}
+        <PorIdentificar onSelect={handleSelectPersona} />
+
         {/* ═══ SEARCH + LIST ═══ */}
         <section>
           <div className="flex items-center justify-between mb-4">
@@ -394,9 +397,6 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             </>
           )}
         </section>
-
-        {/* ═══ PERSONAS POR IDENTIFICAR ═══ */}
-        <PorIdentificar onSelect={handleSelectPersona} />
 
         {/* ═══ DATA SOURCES + EXTERNAL LINKS ═══ */}
         <section className="bg-blue-50 border border-blue-100 rounded-2xl p-6">

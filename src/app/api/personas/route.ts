@@ -100,9 +100,9 @@ export async function PATCH(request: NextRequest) {
     if (notas !== undefined) updates.notas = notas
     if (fotoUrl !== undefined) updates.fotoUrl = fotoUrl
     if (fechaEncontrado || estado === 'encontrado') {
-      updates.fechaEncontrado = fechaEncontrado || new Date().toISOString()
+      updates.fechaEncontrado = fechaEncontrado ? new Date(fechaEncontrado) : new Date()
     }
-    updates.updatedAt = new Date().toISOString()
+    updates.updatedAt = new Date()
 
     const [result] = await db()
       .update(personas)
