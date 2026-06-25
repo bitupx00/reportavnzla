@@ -320,22 +320,6 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         {/* ═══ STATS ═══ */}
         <StatsBar stats={stats} />
 
-        {/* ═══ MAP ═══ */}
-        <section ref={mapSectionRef}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-800">🗺️ Mapa interactivo — Zonas afectadas y ubicaciones</h3>
-            <a href="https://github.com/bitupx00/reportavnzla" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600">
-              Código abierto ↗
-            </a>
-          </div>
-          <Map
-            personas={mapMarkers}
-            zonas={zonas}
-            onSelectPersona={handleSelectPersona}
-            focus={mapFocus}
-          />
-        </section>
-
         {/* ═══ PERSONAS POR IDENTIFICAR ═══ */}
         <PorIdentificar onSelect={handleSelectPersona} />
 
@@ -397,6 +381,22 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               )}
             </>
           )}
+        </section>
+
+        {/* ═══ MAP ═══ */}
+        <section ref={mapSectionRef}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-gray-800">🗺️ Mapa interactivo — Zonas afectadas y ubicaciones</h3>
+            <a href="https://github.com/bitupx00/reportavnzla" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600">
+              Código abierto ↗
+            </a>
+          </div>
+          <Map
+            personas={mapMarkers}
+            zonas={zonas}
+            onSelectPersona={handleSelectPersona}
+            focus={mapFocus}
+          />
         </section>
 
         {/* ═══ DATA SOURCES + EXTERNAL LINKS ═══ */}
