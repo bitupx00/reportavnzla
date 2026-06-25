@@ -68,7 +68,7 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound }: 
         <div className="p-6 space-y-5">
           {/* Photo */}
           <div className="flex justify-center">
-            <div className="w-28 h-28 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-4 border-gray-200">
+            <div className="w-[200px] max-w-full aspect-[250/351] rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border-4 border-gray-200">
               {fixPhotoUrl(persona.fotoUrl) ? (
                 <img
                   src={fixPhotoUrl(persona.fotoUrl)!}

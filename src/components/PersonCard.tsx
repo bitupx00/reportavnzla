@@ -43,7 +43,7 @@ function Card({ persona: p, onClick }: { persona: Persona; onClick: () => void }
     >
       <div className="flex items-start gap-3 p-4">
         {/* Photo */}
-        <div className="flex-shrink-0 w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200">
+        <div className="flex-shrink-0 w-20 aspect-[250/351] rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200">
           {fixPhotoUrl(p.fotoUrl) ? (
             <img
               src={fixPhotoUrl(p.fotoUrl)!}

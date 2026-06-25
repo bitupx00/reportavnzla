@@ -11,10 +11,10 @@ interface Persona {
   estado: string
 }
 
-const statusRing: Record<string, string> = {
-  buscado: 'ring-red-500',
-  encontrado: 'ring-green-500',
-  fallecido: 'ring-gray-400',
+const statusBorder: Record<string, string> = {
+  buscado: 'border-red-500',
+  encontrado: 'border-green-500',
+  fallecido: 'border-gray-400',
 }
 
 /** Fotos visibles a la vez según el ancho de pantalla (responsive). */
@@ -101,25 +101,30 @@ export default function PersonasSlider({
                   key={p.id}
                   onClick={() => onSelect(p.id)}
                   tabIndex={gi === group ? 0 : -1}
-                  className="group flex flex-col items-center gap-2 rounded-lg p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  className="group flex w-full flex-col items-center gap-1.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                   aria-label={`Ver a ${p.nombre} ${p.apellido} — estado: ${p.estado}`}
                 >
-                  <img
-                    src={fixPhotoUrl(p.fotoUrl)!}
-                    alt={`Foto de ${p.nombre} ${p.apellido}`}
-                    loading="lazy"
-                    width={96}
-                    height={96}
-                    onError={(e) => {
-                      e.currentTarget.onerror = null
-                      e.currentTarget.src = AVATAR_FALLBACK
-                    }}
-                    className={`h-16 w-16 rounded-full object-cover ring-4 sm:h-24 sm:w-24 ${
-                      statusRing[p.estado] ?? 'ring-gray-300'
-                    } ring-offset-2 transition-transform group-hover:scale-105`}
-                  />
-                  <span className="max-w-[6rem] truncate text-xs font-medium text-gray-700">
-                    {p.nombre}
+                  {/* Foto en retrato 250x351 (object-cover) para que la cara se vea bien */}
+                  <div
+                    className={`aspect-[250/351] w-full overflow-hidden rounded-xl border-4 bg-gray-100 ${
+                      statusBorder[p.estado] ?? 'border-gray-300'
+                    }`}
+                  >
+                    <img
+                      src={fixPhotoUrl(p.fotoUrl)!}
+                      alt={`Foto de ${p.nombre} ${p.apellido}`}
+                      loading="lazy"
+                      width={250}
+                      height={351}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null
+                        e.currentTarget.src = AVATAR_FALLBACK
+                      }}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                  <span className="w-full truncate text-center text-xs font-medium text-gray-700">
+                    {p.nombre} {p.apellido}
                   </span>
                 </button>
               ))}
