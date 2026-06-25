@@ -20,6 +20,39 @@ type Estado = 'buscado' | 'encontrado' | 'fallecido'
 
 const VTB_API = 'https://venezuela-te-busca-app.hellogafaro.workers.dev/api/persons'
 const DTV_API = 'https://desaparecidos-terremoto-api.theempire.tech/api/personas'
+const TVE_API = 'https://terremotovenezuela.app/api/missing'
+const SOS_API = 'https://sosvenezuela2026.com/api/persons/list'
+
+async function fetchRecentTVE(limit = 500) {
+  const all: any[] = []
+  for (const status of ['active', 'found']) {
+    let page = 1
+    const maxPages = Math.ceil(limit / 100) + 2
+    while (page <= maxPages && all.length < limit) {
+      try {
+        const resp = await fetch(`${TVE_API}?status=${status}&page=${page}&pageSize=100`)
+        if (!resp.ok) break
+        const data = await resp.json()
+        const people = data.people || data.data || []
+        if (!people.length) break
+        for (const r of people) { r._tve_status = status; all.push(r) }
+        if (data.totalPages && page >= data.totalPages) break
+        page++
+      } catch { break }
+    }
+  }
+  return all.slice(0, limit)
+}
+
+async function fetchRecentSOS(limit = 500) {
+  try {
+    // SOS API returns newest first, so offset=0 gets the most recent
+    const resp = await fetch(`${SOS_API}?offset=0&limit=${limit}`)
+    if (!resp.ok) return []
+    const data = await resp.json()
+    return Array.isArray(data) ? data.slice(0, limit) : (data.data || data.persons || data.items || []).slice(0, limit)
+  } catch { return [] }
+}
 
 async function fetchRecentVTB(limit = 500) {
   const all: any[] = []
@@ -58,7 +91,7 @@ async function fetchRecentDTV(limit = 500) {
 }
 
 // ─── Sync: batch lookup + diff ──────────────────────────────
-async function syncSource(source: 'vtb' | 'dtv', limit: number) {
+async function syncSource(source: 'vtb' | 'dtv' | 'tve' | 'sos', limit: number) {
   const t0 = Date.now()
   const stats = { totalFetched: 0, newInserted: 0, statusChanged: 0, updated: 0, errors: 0 }
   const changes: string[] = []
@@ -67,7 +100,10 @@ async function syncSource(source: 'vtb' | 'dtv', limit: number) {
     .insert(syncLog).values({ source, status: 'running', startedAt: new Date() }).returning()
 
   try {
-    const raw = source === 'vtb' ? await fetchRecentVTB(limit) : await fetchRecentDTV(limit)
+    const raw = source === 'vtb' ? await fetchRecentVTB(limit)
+      : source === 'dtv' ? await fetchRecentDTV(limit)
+      : source === 'tve' ? await fetchRecentTVE(limit)
+      : await fetchRecentSOS(limit)
     stats.totalFetched = raw.length
 
     // Parse all records into our format
@@ -88,7 +124,7 @@ async function syncSource(source: 'vtb' | 'dtv', limit: number) {
           fotoUrl: r.photo_key ? `https://venezuela-te-busca-app.hellogafaro.workers.dev${r.photo_key}` : null,
           reportadoPorNombre: r.reporter_name || null,
         }
-      } else {
+      } else if (source === 'dtv') {
         const nombre = (r.nombre || '').trim()
         if (!nombre || nombre.length < 2) return null
         const parts = nombre.split(' ')
@@ -102,6 +138,39 @@ async function syncSource(source: 'vtb' | 'dtv', limit: number) {
           descripcion: r.descripcion || null,
           fotoUrl: r.foto || null,
           reportadoPorNombre: r.localizadoPor || null,
+        }
+      } else if (source === 'tve') {
+        const nombre = (r.name || '').trim()
+        if (!nombre || nombre.length < 2) return null
+        const parts = nombre.split(' ')
+        return {
+          externalId: `tve-${r.id}`,
+          nombre: parts[0].slice(0, 100),
+          apellido: (parts.slice(1).join(' ') || ' ').slice(0, 100),
+          cedula: r.ciPassport || null,
+          edad: r.age ? parseInt(r.age) : null,
+          estado: (r._tve_status === 'found' || r.status === 'found' ? 'encontrado' : 'buscado') as Estado,
+          ubicacion: r.location || null,
+          descripcion: r.description || null,
+          fotoUrl: r.photoUrl || null,
+          reportadoPorNombre: null,
+        }
+      } else {
+        // SOS
+        const nombre = (r.display_name || '').trim()
+        if (!nombre || nombre.length < 2) return null
+        const parts = nombre.split(' ')
+        return {
+          externalId: `sos-${r.id}`,
+          nombre: parts[0].slice(0, 100),
+          apellido: (parts.slice(1).join(' ') || ' ').slice(0, 100),
+          cedula: r.cedula_masked || null,
+          edad: null,
+          estado: (r.status === 'found_alive' ? 'encontrado' : 'buscado') as Estado,
+          ubicacion: r.parroquia || r.municipio || null,
+          descripcion: null,
+          fotoUrl: r.photo_path || null,
+          reportadoPorNombre: null,
         }
       }
     }).filter(Boolean) as any[]
@@ -212,12 +281,12 @@ async function syncSource(source: 'vtb' | 'dtv', limit: number) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
-    const sources: string[] = body.sources || ['vtb', 'dtv']
+    const sources: string[] = body.sources || ['vtb', 'dtv', 'tve', 'sos']
     const limit = Math.min(body.limit || 500, 2000)
     const results: any[] = []
     for (const s of sources) {
-      if (s === 'vtb' || s === 'dtv') {
-        results.push(await syncSource(s as 'vtb' | 'dtv', limit))
+      if (['vtb', 'dtv', 'tve', 'sos'].includes(s)) {
+        results.push(await syncSource(s as 'vtb' | 'dtv' | 'tve' | 'sos', limit))
       }
     }
     return NextResponse.json({ success: true, syncedAt: new Date().toISOString(), results }, { headers: corsHeaders })

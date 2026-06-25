@@ -97,3 +97,27 @@ export const fuentesDatos = pgTable('fuentes_datos', {
   config: text('config'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
+
+// ── Edificios dañados ──────────────────────────────────────
+export const edificios = pgTable('edificios', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  externalId: varchar('external_id', { length: 200 }),
+  nombre: varchar('nombre', { length: 300 }).notNull(),
+  direccion: text('direccion'),
+  ciudad: varchar('ciudad', { length: 100 }),
+  zona: varchar('zona', { length: 200 }),
+  lat: real('lat'),
+  lng: real('lng'),
+  nivelDanio: varchar('nivel_danio', { length: 20 }), // total, severo, parcial
+  estado: varchar('estado', { length: 50 }),
+  fotoUrl: text('foto_url'),
+  fuente: varchar('fuente', { length: 100 }),
+  notas: text('notas'),
+  nombresAtrapados: text('nombres_atrapados'),
+  tieneDesaparecidos: boolean('tiene_desaparecidos').default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('edificios_ciudad_idx').on(table.ciudad),
+  index('edificios_danio_idx').on(table.nivelDanio),
+])
