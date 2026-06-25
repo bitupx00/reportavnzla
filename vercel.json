@@ -1,5 +1,4 @@
 {
-  "crons": [{ "path": "/api/v1/notify", "schedule": "*/10 * * * *" }],
   "headers": [
     {
       "source": "/api/(.*)",
