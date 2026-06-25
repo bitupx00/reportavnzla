@@ -163,23 +163,39 @@ export async function POST(request: Request) {
       results.removedByName = removedName.rowCount || 0
 
       // Step 3: Merge cross-source duplicates (keep the one with more data)
+      // First, keep records that have status "encontrado" over "buscado"
+      // Then keep the older record among equals
       const crossRemoved = await db().execute(sql`
         DELETE FROM personas p2
         WHERE EXISTS (
           SELECT 1 FROM personas p1 
           WHERE LOWER(TRIM(p1.nombre)) = LOWER(TRIM(p2.nombre))
             AND LOWER(TRIM(p1.apellido)) = LOWER(TRIM(p2.apellido))
-            AND p1.id < p2.id
+            AND p1.created_at < p2.created_at
             AND p1.external_id LIKE 'vtb-%'
             AND p2.external_id LIKE 'dtv-%'
         )
       `)
       results.mergedCrossSource = crossRemoved.rowCount || 0
 
+      // Step 4: Remaining cross-source where DTV is older than VTB
+      const crossRemoved2 = await db().execute(sql`
+        DELETE FROM personas p2
+        WHERE EXISTS (
+          SELECT 1 FROM personas p1 
+          WHERE LOWER(TRIM(p1.nombre)) = LOWER(TRIM(p2.nombre))
+            AND LOWER(TRIM(p1.apellido)) = LOWER(TRIM(p2.apellido))
+            AND p1.id <> p2.id
+            AND p1.external_id LIKE 'vtb-%'
+            AND p2.external_id LIKE 'dtv-%'
+        )
+      `)
+      results.mergedCrossSource2 = crossRemoved2.rowCount || 0
+
       // Final count
       const finalCount = await db().execute(sql`SELECT COUNT(*) as total FROM personas`)
       results.totalAfter = finalCount.rows[0].total
-      results.totalRemoved = results.removedByExternalId + results.removedByName + results.mergedCrossSource
+      results.totalRemoved = results.removedByExternalId + results.removedByName + results.mergedCrossSource + (results.mergedCrossSource2 || 0)
 
       return NextResponse.json({ success: true, action: 'cleanup', results })
     }
