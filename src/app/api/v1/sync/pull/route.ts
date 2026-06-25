@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { personas, syncLog } from '@/db/schema'
-import { eq, sql, desc } from 'drizzle-orm'
+import { eq, sql, desc, inArray } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300 // Vercel max for hobby plan
+export const maxDuration = 60
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,335 +16,222 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders })
 }
 
-// ─── VTB API: venezuelatebusca.com ────────────────────────────
-const VTB_API = 'https://venezuela-te-busca-app.hellogafaro.workers.dev/api/persons'
-
-async function fetchAllVTB() {
-  const all: any[] = []
-  let cursor: string | undefined
-  let page = 0
-
-  while (true) {
-    page++
-    const url = cursor ? `${VTB_API}?limit=250&cursor=${encodeURIComponent(cursor)}` : `${VTB_API}?limit=250`
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
-    if (!res.ok) throw new Error(`VTB API ${res.status} on page ${page}`)
-    const data = await res.json()
-    const items = data.persons || []
-    if (items.length === 0) break
-
-    all.push(...items)
-    // Get cursor from last record
-    const last = items[items.length - 1]
-    cursor = last.created_at
-    console.log(`  VTB page ${page}: +${items.length} (total: ${all.length})`)
-
-    if (items.length < 250) break // last page
-  }
-
-  return all
-}
-
-// ─── DTV API: desaparecidosterremotovenezuela.com ────────────
-const DTV_API = 'https://desaparecidos-terremoto-api.theempire.tech/api/personas'
-
-async function fetchAllDTV() {
-  const all: any[] = []
-  let page = 1
-
-  while (true) {
-    const url = `${DTV_API}?page=${page}&pageSize=100`
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
-    if (!res.ok) throw new Error(`DTV API ${res.status} on page ${page}`)
-    const data = await res.json()
-    const items = data.items || []
-    if (items.length === 0) break
-
-    all.push(...items)
-    if (page % 50 === 0) console.log(`  DTV page ${page}: +${items.length} (total: ${all.length})`)
-
-    page++
-    if (items.length < 100) break
-    // Rate limit: ~120 req/min for DTV
-    await new Promise(r => setTimeout(r, 520))
-  }
-
-  return all
-}
-
-// ─── Map source statuses to our enum ─────────────────────────
 type Estado = 'buscado' | 'encontrado' | 'fallecido'
 
-function mapVtbStatus(status: string): Estado {
-  if (status === 'found') return 'encontrado'
-  return 'buscado'
-}
+const VTB_API = 'https://venezuela-te-busca-app.hellogafaro.workers.dev/api/persons'
+const DTV_API = 'https://desaparecidos-terremoto-api.theempire.tech/api/personas'
 
-function mapDtvStatus(estado: string): Estado {
-  if (estado === 'localizado') return 'encontrado'
-  return 'buscado'
-}
-
-// ─── Insert or update a single record ────────────────────────
-async function upsertPersona(data: {
-  externalId: string
-  nombre: string
-  apellido: string
-  cedula?: string | null
-  edad?: number | null
-  genero?: string | null
-  estado: Estado,
-  ubicacion?: string | null
-  descripcion?: string | null
-  fotoUrl?: string | null
-  reportadoPorNombre?: string | null
-  reportadoPorTelefono?: string | null
-}): Promise<{ action: 'inserted' | 'updated' | 'status_changed' | 'skipped', oldStatus?: string }> {
-  // Check if exists by externalId
-  const [existing] = await db()
-    .select({ id: personas.id, estado: personas.estado })
-    .from(personas)
-    .where(eq(personas.externalId, data.externalId))
-    .limit(1)
-
-  if (existing) {
-    // Check if status changed
-    if (existing.estado !== data.estado) {
-      await db()
-        .update(personas)
-        .set({
-          estado: data.estado,
-          updatedAt: new Date(),
-          ...(data.ubicacion ? { ultimaUbicacion: data.ubicacion } : {}),
-          ...(data.fotoUrl ? { fotoUrl: data.fotoUrl } : {}),
-        })
-        .where(eq(personas.id, existing.id))
-      return { action: 'status_changed', oldStatus: existing.estado }
-    }
-
-    // Update other fields but skip if nothing changed
-    const updates: any = { updatedAt: new Date() }
-    if (data.ubicacion) updates.ultimaUbicacion = data.ubicacion
-    if (data.fotoUrl && data.fotoUrl !== 'null') updates.fotoUrl = data.fotoUrl
-    if (data.descripcion) updates.descripcion = data.descripcion
-
-    await db()
-      .update(personas)
-      .set(updates)
-      .where(eq(personas.id, existing.id))
-
-    return { action: 'updated' }
+async function fetchRecentVTB(limit = 500) {
+  const all: any[] = []
+  let cursor: string | undefined
+  while (all.length < limit) {
+    const url = cursor
+      ? `${VTB_API}?limit=250&cursor=${encodeURIComponent(cursor)}`
+      : `${VTB_API}?limit=250`
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
+    if (!res.ok) throw new Error(`VTB ${res.status}`)
+    const data = await res.json()
+    const items: any[] = data.persons || []
+    if (!items.length) break
+    all.push(...items)
+    cursor = items[items.length - 1].created_at
+    if (items.length < 250) break
   }
+  return all.slice(0, limit)
+}
 
-  // Insert new
-  try {
-    await db().insert(personas).values({
-      externalId: data.externalId,
-      nombre: data.nombre.slice(0, 100),
-      apellido: data.apellido.slice(0, 100),
-      cedula: data.cedula || null,
-      edad: data.edad || null,
-      genero: data.genero || null,
-      estado: data.estado,
-      ultimaUbicacion: data.ubicacion || null,
-      descripcion: data.descripcion || null,
-      fotoUrl: data.fotoUrl || null,
-      reportadoPorNombre: data.reportadoPorNombre || null,
-      reportadoPorTelefono: data.reportadoPorTelefono || null,
+async function fetchRecentDTV(limit = 500) {
+  const all: any[] = []
+  for (let page = 1; all.length < limit; page++) {
+    const res = await fetch(`${DTV_API}?page=${page}&pageSize=100`, {
+      headers: { 'Accept': 'application/json' },
     })
-    return { action: 'inserted' }
-  } catch (e: any) {
-    // Duplicate external_id race condition — skip
-    if (e.message?.includes('duplicate') || e.message?.includes('unique')) {
-      return { action: 'skipped' }
-    }
-    throw e
+    if (!res.ok) throw new Error(`DTV ${res.status}`)
+    const data = await res.json()
+    const items: any[] = data.items || []
+    if (!items.length) break
+    all.push(...items)
+    if (items.length < 100) break
+    if (page < 6) await new Promise(r => setTimeout(r, 520))
   }
+  return all.slice(0, limit)
 }
 
-// ─── Sync a single source ────────────────────────────────────
-async function syncSource(source: 'vtb' | 'dtv') {
-  const startTime = Date.now()
+// ─── Sync: batch lookup + diff ──────────────────────────────
+async function syncSource(source: 'vtb' | 'dtv', limit: number) {
+  const t0 = Date.now()
   const stats = { totalFetched: 0, newInserted: 0, statusChanged: 0, updated: 0, errors: 0 }
   const changes: string[] = []
 
-  // Create sync log entry
   const [log] = await db()
-    .insert(syncLog)
-    .values({ source, status: 'running', startedAt: new Date() })
-    .returning()
+    .insert(syncLog).values({ source, status: 'running', startedAt: new Date() }).returning()
 
   try {
-    let records: any[]
+    const raw = source === 'vtb' ? await fetchRecentVTB(limit) : await fetchRecentDTV(limit)
+    stats.totalFetched = raw.length
 
-    if (source === 'vtb') {
-      records = await fetchAllVTB()
-    } else {
-      records = await fetchAllDTV()
-    }
-
-    stats.totalFetched = records.length
-
-    // Process in batches of 20 (DB connections are limited)
-    const BATCH = 20
-    for (let i = 0; i < records.length; i += BATCH) {
-      const batch = records.slice(i, i + BATCH)
-
-      const results = await Promise.allSettled(
-        batch.map(async (r) => {
-          if (source === 'vtb') {
-            // Map VTB fields
-            const firstName = (r.first_name || '').trim()
-            const lastName = (r.last_name || '').trim()
-            if (!firstName || firstName.length < 2) return null
-
-            return upsertPersona({
-              externalId: `vtb-${r.id}`,
-              nombre: firstName,
-              apellido: lastName || ' ',
-              cedula: r.national_id || null,
-              edad: r.age ? parseInt(r.age) : null,
-              genero: r.gender || null,
-              estado: mapVtbStatus(r.status),
-              ubicacion: r.last_seen_location || null,
-              descripcion: r.description || r.found_notes || null,
-              fotoUrl: r.photo_key ? `https://venezuela-te-busca-app.hellogafaro.workers.dev${r.photo_key}` : null,
-              reportadoPorNombre: r.reporter_name || null,
-              reportadoPorTelefono: r.reporter_phone || null,
-            })
-          } else {
-            // Map DTV fields
-            const nombre = (r.nombre || '').trim()
-            if (!nombre || nombre.length < 2) return null
-
-            const parts = nombre.split(' ')
-            const firstName = parts[0]
-            const lastName = parts.slice(1).join(' ') || ' '
-
-            return upsertPersona({
-              externalId: `dtv-${r.id}`,
-              nombre: firstName.slice(0, 100),
-              apellido: lastName.slice(0, 100),
-              edad: r.edad ? parseInt(r.edad) : null,
-              genero: null,
-              estado: mapDtvStatus(r.estado),
-              ubicacion: r.ubicacion || null,
-              descripcion: r.descripcion || null,
-              fotoUrl: r.foto || null,
-              reportadoPorNombre: r.localizadoPor || null,
-              reportadoPorTelefono: r.localizadoContacto || null,
-            })
-          }
-        })
-      )
-
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value) {
-          const r = result.value
-          if (r.action === 'inserted') stats.newInserted++
-          else if (r.action === 'status_changed') {
-            stats.statusChanged++
-            changes.push(`${r.oldStatus}→${r.action}`)
-          }
-          else if (r.action === 'updated') stats.updated++
-        } else if (result.status === 'rejected') {
-          stats.errors++
+    // Parse all records into our format
+    const parsed = raw.map((r: any) => {
+      if (source === 'vtb') {
+        const nombre = (r.first_name || '').trim()
+        const apellido = (r.last_name || '').trim()
+        if (!nombre || nombre.length < 2) return null
+        return {
+          externalId: `vtb-${r.id}`,
+          nombre: nombre.slice(0, 100),
+          apellido: apellido.slice(0, 100),
+          cedula: r.national_id || null,
+          edad: r.age ? parseInt(r.age) : null,
+          estado: (r.status === 'found' ? 'encontrado' : 'buscado') as Estado,
+          ubicacion: r.last_seen_location || null,
+          descripcion: r.description || null,
+          fotoUrl: r.photo_key ? `https://venezuela-te-busca-app.hellogafaro.workers.dev${r.photo_key}` : null,
+          reportadoPorNombre: r.reporter_name || null,
+        }
+      } else {
+        const nombre = (r.nombre || '').trim()
+        if (!nombre || nombre.length < 2) return null
+        const parts = nombre.split(' ')
+        return {
+          externalId: `dtv-${r.id}`,
+          nombre: parts[0].slice(0, 100),
+          apellido: (parts.slice(1).join(' ') || ' ').slice(0, 100),
+          edad: r.edad ? parseInt(r.edad) : null,
+          estado: (r.estado === 'localizado' ? 'encontrado' : 'buscado') as Estado,
+          ubicacion: r.ubicacion || null,
+          descripcion: r.descripcion || null,
+          fotoUrl: r.foto || null,
+          reportadoPorNombre: r.localizadoPor || null,
         }
       }
+    }).filter(Boolean) as any[]
 
-      // Progress log every 1000 records
-      if ((i + BATCH) % 1000 < BATCH) {
-        console.log(`  ${source.toUpperCase()} progress: ${i + batch.length}/${records.length} ins=${stats.newInserted} chg=${stats.statusChanged} err=${stats.errors}`)
+    // Batch lookup: get all existing records by external_id
+    const externalIds = parsed.map(p => p.externalId)
+    const existingMap = new Map<string, { id: string; estado: string }>()
+
+    // Query in chunks of 200 (PostgreSQL IN clause limit)
+    for (let i = 0; i < externalIds.length; i += 200) {
+      const chunk = externalIds.slice(i, i + 200)
+      const rows = await db()
+        .select({ id: personas.id, estado: personas.estado, externalId: personas.externalId })
+        .from(personas)
+        .where(inArray(personas.externalId, chunk))
+      for (const row of rows) {
+        if (row.externalId) existingMap.set(row.externalId, row)
       }
     }
 
-    const durationMs = Date.now() - startTime
+    // Diff: categorize into new / status_changed / unchanged
+    const newRecords: any[] = []
+    const statusUpdates: any[] = []
 
-    // Update sync log
+    for (const p of parsed) {
+      const existing = existingMap.get(p.externalId)
+      if (!existing) {
+        newRecords.push(p)
+      } else if (existing.estado !== p.estado) {
+        statusUpdates.push({ ...p, existingId: existing.id, oldEstado: existing.estado })
+      } else {
+        stats.updated++
+      }
+    }
+
+    // Batch insert new records (chunks of 50)
+    for (let i = 0; i < newRecords.length; i += 50) {
+      const chunk = newRecords.slice(i, i + 50)
+      try {
+        await db().insert(personas).values(chunk.map(r => ({
+          externalId: r.externalId,
+          nombre: r.nombre,
+          apellido: r.apellido,
+          cedula: r.cedula,
+          edad: r.edad,
+          estado: r.estado,
+          ultimaUbicacion: r.ubicacion,
+          descripcion: r.descripcion,
+          fotoUrl: r.fotoUrl,
+          reportadoPorNombre: r.reportadoPorNombre,
+        })))
+        stats.newInserted += chunk.length
+      } catch (e: any) {
+        // If batch fails, insert one by one to find the problem
+        for (const r of chunk) {
+          try {
+            await db().insert(personas).values({
+              externalId: r.externalId, nombre: r.nombre, apellido: r.apellido,
+              cedula: r.cedula, edad: r.edad, estado: r.estado,
+              ultimaUbicacion: r.ubicacion, descripcion: r.descripcion,
+              fotoUrl: r.fotoUrl, reportadoPorNombre: r.reportadoPorNombre,
+            })
+            stats.newInserted++
+          } catch (e2: any) {
+            stats.errors++
+          }
+        }
+      }
+    }
+
+    // Batch update status changes
+    for (const u of statusUpdates) {
+      try {
+        await db()
+          .update(personas)
+          .set({ estado: u.estado, updatedAt: new Date() })
+          .where(eq(personas.id, u.existingId))
+        stats.statusChanged++
+        changes.push(`${u.nombre} ${u.apellido}: ${u.oldEstado} → ${u.estado}`)
+      } catch (e: any) {
+        stats.errors++
+      }
+    }
+
+    const durationMs = Date.now() - t0
     await db()
       .update(syncLog)
       .set({
-        status: 'completed',
-        totalFetched: stats.totalFetched,
-        newInserted: stats.newInserted,
-        statusChanged: stats.statusChanged,
-        updated: stats.updated,
-        errors: stats.errors,
-        durationMs,
-        details: JSON.stringify({ changes: changes.slice(0, 50) }),
+        status: 'completed', totalFetched: stats.totalFetched,
+        newInserted: stats.newInserted, statusChanged: stats.statusChanged,
+        updated: stats.updated, errors: stats.errors, durationMs,
+        details: JSON.stringify({ changes: changes.slice(0, 30) }),
         completedAt: new Date(),
       })
       .where(eq(syncLog.id, log.id))
 
-    return { success: true, ...stats, durationMs, source }
-
+    return { success: true, ...stats, durationMs, source, changes: changes.slice(0, 10) }
   } catch (error: any) {
-    const durationMs = Date.now() - startTime
     await db()
       .update(syncLog)
-      .set({
-        status: 'error',
-        errors: stats.errors + 1,
-        durationMs,
-        details: JSON.stringify({ error: error.message, processedSoFar: stats.totalFetched }),
-        completedAt: new Date(),
-      })
+      .set({ status: 'error', errors: 1, durationMs: Date.now() - t0, details: error.message, completedAt: new Date() })
       .where(eq(syncLog.id, log.id))
-
-    return { success: false, error: error.message, ...stats, durationMs, source }
+    return { success: false, error: error.message, ...stats, durationMs: Date.now() - t0, source }
   }
 }
 
-// ─── POST /api/v1/sync/pull ─────────────────────────────────
-// Triggers a full sync from both source APIs
-// Body (optional): { sources: ['vtb', 'dtv'] } — defaults to both
+// POST /api/v1/sync/pull — trigger incremental sync
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
     const sources: string[] = body.sources || ['vtb', 'dtv']
-
+    const limit = Math.min(body.limit || 500, 2000)
     const results: any[] = []
-
-    for (const source of sources) {
-      if (source === 'vtb' || source === 'dtv') {
-        console.log(`\n🔄 Syncing ${source.toUpperCase()}...`)
-        const result = await syncSource(source as 'vtb' | 'dtv')
-        results.push(result)
-        console.log(`✅ ${source.toUpperCase()}: ${JSON.stringify(result)}`)
+    for (const s of sources) {
+      if (s === 'vtb' || s === 'dtv') {
+        results.push(await syncSource(s as 'vtb' | 'dtv', limit))
       }
     }
-
-    return NextResponse.json({
-      success: true,
-      syncedAt: new Date().toISOString(),
-      results,
-    }, { headers: corsHeaders })
+    return NextResponse.json({ success: true, syncedAt: new Date().toISOString(), results }, { headers: corsHeaders })
   } catch (error: any) {
-    return NextResponse.json({
-      success: false,
-      error: error.message,
-    }, { status: 500, headers: corsHeaders })
+    return NextResponse.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders })
   }
 }
 
-// ─── GET /api/v1/sync/pull ──────────────────────────────────
-// Returns sync history (last 20 runs)
+// GET /api/v1/sync/pull — sync history
 export async function GET() {
   try {
-    const logs = await db()
-      .select()
-      .from(syncLog)
-      .orderBy(desc(syncLog.startedAt))
-      .limit(20)
-
-    return NextResponse.json({
-      success: true,
-      logs,
-    }, { headers: corsHeaders })
+    const logs = await db().select().from(syncLog).orderBy(desc(syncLog.startedAt)).limit(20)
+    return NextResponse.json({ success: true, logs }, { headers: corsHeaders })
   } catch (error: any) {
-    return NextResponse.json({
-      success: false,
-      error: error.message,
-    }, { status: 500, headers: corsHeaders })
+    return NextResponse.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders })
   }
 }
