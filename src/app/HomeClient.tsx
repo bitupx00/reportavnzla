@@ -8,7 +8,7 @@ import PersonCard from '@/components/PersonCard'
 import PersonDetail from '@/components/PersonDetail'
 import AddPersonModal from '@/components/AddPersonModal'
 import PersonasSlider from '@/components/PersonasSlider'
-import SocialWall from '@/components/SocialWall'
+import SocialSidebar from '@/components/SocialSidebar'
 import PorIdentificar from '@/components/PorIdentificar'
 import { approxCoords } from '@/lib/utils'
 
@@ -71,6 +71,12 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
   const [totalPages, setTotalPages] = useState(1)
   const [currentPage, setCurrentPage] = useState(0)
   const [searchParams, setSearchParams] = useState({ q: '', estado: '' })
+  const [socialOpen, setSocialOpen] = useState(false)
+
+  // Sidebar de redes: abierto por defecto en desktop, cerrado (cajón) en móvil
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) setSocialOpen(true)
+  }, [])
 
   // ── Fetch personas on mount (not just initial) ──
   const fetchPersonas = useCallback(async (q = '', estado = '', page = 0) => {
@@ -252,7 +258,9 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     .filter((m): m is NonNullable<typeof m> => m !== null)
 
   return (
-    <main className="min-h-screen">
+    <>
+    <SocialSidebar open={socialOpen} setOpen={setSocialOpen} />
+    <main className={`min-h-screen transition-[padding] duration-300 ${socialOpen ? 'lg:pl-[340px]' : ''}`}>
       {/* ═══ EMERGENCY BANNER ═══ */}
       <div className="emergency-banner bg-red-600 text-white text-center py-2 px-4 text-sm font-semibold">
         🆘 EMERGENCIA — Terremoto Venezuela 2026 — Plataforma solidaria para buscar personas afectadas
@@ -464,8 +472,6 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
           </div>
         </section>
 
-        {/* ═══ REDES SOCIALES ═══ */}
-        <SocialWall />
       </div>
 
       {/* ═══ FOOTER ═══ */}
@@ -533,5 +539,6 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         onLocate={handleLocate}
       />
     </main>
+    </>
   )
 }
