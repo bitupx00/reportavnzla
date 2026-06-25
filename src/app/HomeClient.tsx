@@ -213,8 +213,9 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     await fetchPersonas(searchParams.q, searchParams.estado, 0)
   }, [fetchPersonas, searchParams])
 
-  // Excluir "Por identificar" del listado/slider/mapa (van a su propia sección)
-  const personasVisibles = personas.filter((p) => p.nombre !== 'Por identificar')
+  // Los "por identificar" también aparecen en el listado/slider/mapa para que
+  // cualquiera pueda reconocerlos y completar sus datos.
+  const personasVisibles = personas
 
   // Map markers: only persons with coordinates
   const mapMarkers = personasVisibles

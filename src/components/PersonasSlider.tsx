@@ -67,9 +67,7 @@ export default function PersonasSlider({
       const res = await fetch(`/api/personas?page=${pg}&limit=${PAGE}`)
       const data = await res.json()
       const arr = (data.data || data) as Persona[]
-      const withPhoto = Array.isArray(arr)
-        ? arr.filter((p) => fixPhotoUrl(p.fotoUrl) && p.nombre !== 'Por identificar')
-        : []
+      const withPhoto = Array.isArray(arr) ? arr.filter((p) => fixPhotoUrl(p.fotoUrl)) : []
       setItems((prev) => {
         const seen = new Set(prev.map((p) => p.id))
         return [...prev, ...withPhoto.filter((p) => !seen.has(p.id))]

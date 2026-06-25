@@ -28,22 +28,49 @@ export async function GET() {
   }
 }
 
-// POST /api/por-identificar — registra una persona por identificar (solo foto)
+// POST /api/por-identificar — registra una persona encontrada (foto + datos opcionales)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { fotoUrl, estado, ultimaUbicacion, descripcion } = body
+    const {
+      fotoUrl,
+      estado,
+      nombre,
+      apellido,
+      ultimaUbicacion,
+      descripcion,
+      contactoNombre,
+      contactoTelefono,
+      contactoEmail,
+    } = body
     if (!fotoUrl) {
       return NextResponse.json({ error: 'fotoUrl requerido' }, { status: 400 })
     }
     await ensureSchema()
     const sql = sqlRaw()
     const est = estado === 'fallecido' ? 'fallecido' : 'encontrado'
+    const nom = nombre && String(nombre).trim() ? String(nombre).trim().slice(0, 100) : 'Por identificar'
+    const ape = apellido && String(apellido).trim() ? String(apellido).trim().slice(0, 100) : ''
+    // sin_identificar = true si NO dieron nombre real
+    const sinId = nom === 'Por identificar'
     const rows = (await sql`
       INSERT INTO personas (nombre, apellido, estado, foto_url, ultima_ubicacion, descripcion, sin_identificar)
-      VALUES ('Por identificar', '', ${est}, ${fotoUrl}, ${ultimaUbicacion || null}, ${descripcion || null}, true)
+      VALUES (${nom}, ${ape}, ${est}, ${fotoUrl}, ${ultimaUbicacion || null}, ${descripcion || null}, ${sinId})
       RETURNING id`) as Array<{ id: string }>
-    return NextResponse.json({ ok: true, id: rows[0]?.id }, { status: 201 })
+    const id = rows[0]?.id
+
+    // Contacto opcional -> aviso/familiar
+    if (id && contactoNombre && String(contactoNombre).trim()) {
+      await sql`ALTER TABLE avisos ADD COLUMN IF NOT EXISTS email_aviso varchar(150)`
+      await sql`
+        INSERT INTO avisos (persona_id, nombre_aviso, telefono_aviso, email_aviso, mensaje)
+        VALUES (${id}, ${String(contactoNombre).trim().slice(0, 150)},
+                ${contactoTelefono ? String(contactoTelefono).trim().slice(0, 30) : null},
+                ${contactoEmail ? String(contactoEmail).trim().slice(0, 150) : null},
+                'Contacto de quien la encontró')`
+    }
+
+    return NextResponse.json({ ok: true, id }, { status: 201 })
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
