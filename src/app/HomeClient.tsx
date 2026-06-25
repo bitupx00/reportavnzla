@@ -83,7 +83,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       setCurrentPage(page)
 
       // Also fetch updated stats
-      const statsRes = await fetch('/api/stats')
+      const statsRes = await fetch('/api/v1/stats')
       const statsData = await statsRes.json()
       if (statsData.total !== undefined) setStats(statsData)
     } catch (err) {
