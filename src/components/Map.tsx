@@ -151,9 +151,6 @@ export default function Map({
     const map = mapInstanceRef.current
     if (!map) return
 
-    // eslint-disable-next-line no-console
-    console.log('[MAP] render markers — personas:', personas.length, 'zonas:', zonas.length)
-
     layersRef.current.clearLayers()
 
     // ── ZONA CIRCLES ──
