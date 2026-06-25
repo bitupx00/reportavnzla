@@ -1,6 +1,6 @@
 'use client'
 
-import { cn, formatDate, formatCedula, statusColor } from '@/lib/utils'
+import { cn, formatDate, formatCedula, statusColor, fixPhotoUrl, AVATAR_FALLBACK } from '@/lib/utils'
 
 interface Persona {
   id: string
@@ -44,12 +44,16 @@ function Card({ persona: p, onClick }: { persona: Persona; onClick: () => void }
       <div className="flex items-start gap-3 p-4">
         {/* Photo */}
         <div className="flex-shrink-0 w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-gray-200">
-          {p.fotoUrl ? (
+          {fixPhotoUrl(p.fotoUrl) ? (
             <img
-              src={p.fotoUrl}
-              alt={`${p.nombre} ${p.apellido}`}
+              src={fixPhotoUrl(p.fotoUrl)!}
+              alt={`Foto de ${p.nombre} ${p.apellido}`}
               className="w-full h-full object-cover"
               loading="lazy"
+              onError={(e) => {
+                e.currentTarget.onerror = null
+                e.currentTarget.src = AVATAR_FALLBACK
+              }}
             />
           ) : (
             <span className="text-2xl">👤</span>

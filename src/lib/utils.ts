@@ -50,6 +50,36 @@ export function statusColor(estado: string): string {
   return colors[estado] || 'bg-gray-100 text-gray-800'
 }
 
+/**
+ * Avatar de respaldo (SVG data-URI) para cuando una foto no carga.
+ * Evita un request extra y nunca falla.
+ */
+export const AVATAR_FALLBACK =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" fill="#f1f5f9"/><circle cx="48" cy="38" r="18" fill="#cbd5e1"/><path d="M16 86c0-17.7 14.3-32 32-32s32 14.3 32 32" fill="#cbd5e1"/></svg>'
+  )
+
+/**
+ * Repara URLs de foto malformadas guardadas por el scraper.
+ *
+ * Bug en producción: falta el "/" entre el dominio y el path, p.ej.
+ *   https://...workers.devphotos/migrated/x.webp
+ *   → https://...workers.dev/photos/migrated/x.webp
+ * Inserta la barra que falta tras el dominio; no toca URLs ya correctas.
+ * Devuelve null si la URL es vacía/inválida.
+ */
+export function fixPhotoUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const raw = String(url).trim()
+  if (!raw || raw === 'null' || raw === 'undefined') return null
+  if (!/^https?:\/\//i.test(raw)) return raw
+  return raw.replace(
+    /^(https?:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:dev|app|com|net|org|io|co|me|gob))(?=[a-z0-9])/i,
+    '$1/'
+  )
+}
+
 export function severidadColor(severidad: string): string {
   const colors: Record<string, string> = {
     critica: '#dc2626',

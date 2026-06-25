@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { formatDate, formatCedula, statusColor } from '@/lib/utils'
+import { formatDate, formatCedula, statusColor, fixPhotoUrl, AVATAR_FALLBACK } from '@/lib/utils'
 
 interface Persona {
   id: string
@@ -69,8 +69,16 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound }: 
           {/* Photo */}
           <div className="flex justify-center">
             <div className="w-28 h-28 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-4 border-gray-200">
-              {persona.fotoUrl ? (
-                <img src={persona.fotoUrl} alt={persona.nombre} className="w-full h-full object-cover" />
+              {fixPhotoUrl(persona.fotoUrl) ? (
+                <img
+                  src={fixPhotoUrl(persona.fotoUrl)!}
+                  alt={`Foto de ${persona.nombre} ${persona.apellido}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null
+                    e.currentTarget.src = AVATAR_FALLBACK
+                  }}
+                />
               ) : (
                 <span className="text-5xl">👤</span>
               )}

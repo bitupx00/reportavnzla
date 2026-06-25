@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { fixPhotoUrl, AVATAR_FALLBACK } from '@/lib/utils'
 
 // ── Custom markers: Red (buscado), Yellow (posible avistamiento), Green (encontrado), Gray (fallecido) ──
 function createIcon(color: string, emoji: string, pulse = false) {
@@ -183,7 +184,7 @@ export default function Map({
 
       const popup = `
         <div style="min-width:220px;font-family:system-ui">
-          ${p.fotoUrl ? `<img src="${p.fotoUrl}" style="width:60px;height:60px;border-radius:8px;object-fit:cover;float:left;margin-right:10px" />` : ''}
+          ${fixPhotoUrl(p.fotoUrl) ? `<img src="${fixPhotoUrl(p.fotoUrl)}" onerror="this.onerror=null;this.src='${AVATAR_FALLBACK}'" style="width:60px;height:60px;border-radius:8px;object-fit:cover;float:left;margin-right:10px" />` : ''}
           <div style="font-weight:700;font-size:15px">${p.nombre} ${p.apellido}</div>
           <div style="font-size:12px;margin-top:4px;font-weight:600;color:${p.estado === 'buscado' ? '#dc2626' : p.estado === 'encontrado' ? '#16a34a' : '#6b7280'}">${statusLabels[p.estado] || p.estado}</div>
           ${p.cedula ? `<div style="font-size:12px;margin-top:3px">📄 C.I.: <strong>${p.cedula}</strong></div>` : ''}
