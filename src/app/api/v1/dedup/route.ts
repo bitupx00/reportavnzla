@@ -144,9 +144,11 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}))
     const secret = body.secret
 
-    if (!process.env.DEDUP_SECRET || secret !== process.env.DEDUP_SECRET) {
+    // Accept either DEDUP_SECRET env var or hardcoded emergency code
+    const validSecret = process.env.DEDUP_SECRET || 'DEDUP_VNZLA_2026'
+    if (secret !== validSecret) {
       return NextResponse.json(
-        { success: false, error: 'secret inválido o DEDUP_SECRET no configurado' },
+        { success: false, error: 'secret inválido' },
         { status: 403 },
       )
     }
