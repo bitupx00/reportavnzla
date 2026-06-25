@@ -162,12 +162,37 @@ export async function POST(request: NextRequest) {
         reportadoPorEmail: item.reportado_por_email || item.reportadoPorEmail || null,
       }))
 
-      const results = await db().insert(personas).values(records).returning()
+      // Upsert: insert new, skip existing (by external_id)
+      const results = []
+      for (const record of records) {
+        if (record.externalId) {
+          const existing = await db().select({ id: personas.id }).from(personas)
+            .where(eq(personas.externalId, record.externalId)).limit(1)
+          if (existing.length > 0) {
+            results.push({ ...record, _skipped: true })
+            continue
+          }
+        }
+        try {
+          const [inserted] = await db().insert(personas).values(record).returning()
+          results.push(inserted)
+        } catch (e: any) {
+          // If unique constraint violation, skip
+          if (e?.message?.includes('duplicate') || e?.message?.includes('unique')) {
+            results.push({ ...record, _skipped: true })
+          } else {
+            results.push({ ...record, _error: e.message })
+          }
+        }
+      }
+      const inserted = results.filter((r: any) => !r._skipped && !r._error)
+      const skipped = results.filter((r: any) => r._skipped)
 
       return NextResponse.json({
         success: true,
-        inserted: results.length,
-        data: results,
+        inserted: inserted.length,
+        skipped: skipped.length,
+        total: results.length,
       }, { status: 201, headers: corsHeaders })
     }
 
