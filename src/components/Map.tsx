@@ -113,8 +113,8 @@ export default function Map({
     // Límites de Venezuela: el mapa no se puede arrastrar ni alejar fuera del país
     const VEN_BOUNDS = L.latLngBounds([0.6, -73.4], [12.3, -59.8])
     const map = L.map(mapRef.current, {
-      center: [8.4, -66.4],
-      zoom: 6,
+      center: [10.56, -66.92], // La Guaira / Vargas — epicentro del sismo y de los reportes
+      zoom: 11,
       minZoom: 6,
       zoomControl: false,
       maxBounds: VEN_BOUNDS,
