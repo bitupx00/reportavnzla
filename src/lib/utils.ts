@@ -79,6 +79,39 @@ export function fixPhotoUrl(url: string | null | undefined): string | null {
   return raw.replace(/(\.workers\.dev)(?=[A-Za-z0-9])/, '$1/')
 }
 
+/**
+ * Geocodificación APROXIMADA por localidad (estado La Guaira/Vargas y Caracas),
+ * para ubicar en el mapa a personas que solo tienen dirección en texto (sin
+ * lat/lng). Devuelve coordenadas con un "jitter" determinista por id para que
+ * los marcadores de una misma localidad no se apilen. NO es la posición real:
+ * marcar siempre como aproximada en la UI.
+ */
+const LOCALIDADES: Array<[RegExp, number, number]> = [
+  [/catia\s*la\s*mar/i, 10.602, -67.03],
+  [/maiquet[ií]a/i, 10.601, -66.981],
+  [/macuto/i, 10.613, -66.892],
+  [/caraballeda|tanaguarena/i, 10.611, -66.851],
+  [/naiguat[aá]/i, 10.62, -66.741],
+  [/camur[ií]|car[ií]be/i, 10.612, -66.815],
+  [/anare|los\s*caracas|osma|oricao|chichiriviche|chuspa/i, 10.62, -66.55],
+  [/la\s*guaira|vargas/i, 10.601, -66.931],
+  [/caracas|distrito\s*capital|libertador|chacao|sucre|baruta|petare/i, 10.491, -66.879],
+]
+
+export function approxCoords(
+  ubicacion: string | null | undefined,
+  id: string
+): { lat: number; lng: number } | null {
+  if (!ubicacion) return null
+  const hit = LOCALIDADES.find(([re]) => re.test(ubicacion))
+  if (!hit) return null
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+  const jLat = (((h % 1000) / 1000) - 0.5) * 0.016 // ≈ ±0.9 km
+  const jLng = ((((h >> 10) % 1000) / 1000) - 0.5) * 0.016
+  return { lat: hit[1] + jLat, lng: hit[2] + jLng }
+}
+
 export function severidadColor(severidad: string): string {
   const colors: Record<string, string> = {
     critica: '#dc2626',

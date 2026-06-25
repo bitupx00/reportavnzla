@@ -8,6 +8,7 @@ import PersonCard from '@/components/PersonCard'
 import PersonDetail from '@/components/PersonDetail'
 import AddPersonModal from '@/components/AddPersonModal'
 import PersonasSlider from '@/components/PersonasSlider'
+import { approxCoords } from '@/lib/utils'
 
 // Dynamic import for Map (no SSR for Leaflet)
 const Map = dynamic(() => import('@/components/Map'), { ssr: false, loading: () => <div className="bg-gray-200 animate-pulse rounded-xl map-container" /> })
@@ -182,21 +183,37 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
 
   // Map markers: only persons with coordinates
   const mapMarkers = personas
-    .filter(p => p.lat && p.lng)
-    .map(p => ({
-      id: p.id,
-      nombre: p.nombre,
-      apellido: p.apellido,
-      cedula: p.cedula,
-      edad: p.edad,
-      estado: p.estado,
-      lat: p.lat!,
-      lng: p.lng!,
-      ultimaUbicacion: p.ultimaUbicacion,
-      descripcion: p.descripcion,
-      fotoUrl: p.fotoUrl,
-      createdAt: p.createdAt,
-    }))
+    .map((p) => {
+      // Coordenada real si existe; si no, aproximada por localidad (texto).
+      let lat = p.lat
+      let lng = p.lng
+      let aproximada = false
+      if (!(lat && lng)) {
+        const a = approxCoords(p.ultimaUbicacion, p.id)
+        if (a) {
+          lat = a.lat
+          lng = a.lng
+          aproximada = true
+        }
+      }
+      if (!(lat && lng)) return null
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        apellido: p.apellido,
+        cedula: p.cedula,
+        edad: p.edad,
+        estado: p.estado,
+        lat,
+        lng,
+        ultimaUbicacion: p.ultimaUbicacion,
+        descripcion: p.descripcion,
+        fotoUrl: p.fotoUrl,
+        createdAt: p.createdAt,
+        aproximada,
+      }
+    })
+    .filter((m): m is NonNullable<typeof m> => m !== null)
 
   return (
     <main className="min-h-screen">

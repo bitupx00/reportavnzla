@@ -59,6 +59,7 @@ export interface PersonaMarker {
   descripcion: string | null
   fotoUrl: string | null
   createdAt: string
+  aproximada?: boolean
 }
 
 export interface ZonaAfectada {
@@ -190,6 +191,7 @@ export default function Map({
           ${p.cedula ? `<div style="font-size:12px;margin-top:3px">📄 C.I.: <strong>${p.cedula}</strong></div>` : ''}
           ${p.edad ? `<div style="font-size:12px">👤 Edad: ${p.edad} años</div>` : ''}
           ${p.ultimaUbicacion ? `<div style="font-size:12px;margin-top:3px">📍 Última ubicación: <strong>${p.ultimaUbicacion}</strong></div>` : ''}
+          ${p.aproximada ? `<div style="font-size:11px;margin-top:3px;color:#b45309">⚠️ Posición aproximada por localidad</div>` : ''}
           ${p.descripcion ? `<div style="font-size:11px;color:#555;margin-top:4px;line-height:1.4">${p.descripcion.substring(0, 120)}${p.descripcion.length > 120 ? '...' : ''}</div>` : ''}
           <div style="margin-top:8px">
             <button onclick="window.__selectPersona('${p.id}')" style="background:#dc2626;color:white;border:none;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;width:100%">Ver ficha completa</button>
