@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import StatsBar from '@/components/StatsBar'
 import SearchBar from '@/components/SearchBar'
@@ -62,6 +62,8 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
   const [personas, setPersonas] = useState<Persona[]>(initialPersonas)
   const [zonas] = useState<Zona[]>(initialZonas)
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null)
+  const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null)
+  const mapSectionRef = useRef<HTMLElement>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
@@ -114,6 +116,27 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       setSelectedPersona(data)
     } catch (err) {
       console.error('Error fetching persona:', err)
+    }
+  }, [])
+
+  // Centrar el mapa en una persona (coord real o aproximada por localidad)
+  const handleLocate = useCallback((p: Persona) => {
+    let lat = p.lat
+    let lng = p.lng
+    if (!(lat && lng)) {
+      const a = approxCoords(p.ultimaUbicacion, p.id)
+      if (a) {
+        lat = a.lat
+        lng = a.lng
+      }
+    }
+    setSelectedPersona(null)
+    if (lat && lng) {
+      setMapFocus({ lat, lng })
+      window.setTimeout(
+        () => mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+        60
+      )
     }
   }, [])
 
@@ -274,7 +297,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         <StatsBar stats={stats} />
 
         {/* ═══ MAP ═══ */}
-        <section>
+        <section ref={mapSectionRef}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-gray-800">🗺️ Mapa interactivo — Zonas afectadas y ubicaciones</h3>
             <a href="https://github.com/bitupx00/reportavnzla" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600">
@@ -285,6 +308,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             personas={mapMarkers}
             zonas={zonas}
             onSelectPersona={handleSelectPersona}
+            focus={mapFocus}
           />
         </section>
 
@@ -476,6 +500,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         isOpen={!!selectedPersona}
         onClose={() => setSelectedPersona(null)}
         onMarkFound={handleMarkFound}
+        onLocate={handleLocate}
       />
     </main>
   )

@@ -14,6 +14,8 @@ interface Persona {
   descripcion: string | null
   fotoUrl: string | null
   estado: string
+  lat: number | null
+  lng: number | null
   fechaEncontrado: string | null
   notas: string | null
   reportadoPorNombre: string | null
@@ -27,12 +29,14 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   onMarkFound: (id: string, notas: string) => Promise<void>
+  onLocate?: (persona: Persona) => void
 }
 
-export default function PersonDetail({ persona, isOpen, onClose, onMarkFound }: Props) {
+export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, onLocate }: Props) {
   const [loading, setLoading] = useState(false)
   const [notasEncontrado, setNotasEncontrado] = useState('')
   const [showFoundForm, setShowFoundForm] = useState(false)
+  const [zoom, setZoom] = useState(false)
 
   if (!isOpen || !persona) return null
 
@@ -66,14 +70,16 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound }: 
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Photo */}
+          {/* Photo (click para ampliar) */}
           <div className="flex justify-center">
             <div className="w-[200px] max-w-full aspect-[250/351] rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border-4 border-gray-200">
               {fixPhotoUrl(persona.fotoUrl) ? (
                 <img
                   src={fixPhotoUrl(persona.fotoUrl)!}
                   alt={`Foto de ${persona.nombre} ${persona.apellido}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-zoom-in"
+                  title="Click para ampliar"
+                  onClick={() => setZoom(true)}
                   onError={(e) => {
                     e.currentTarget.onerror = null
                     e.currentTarget.src = AVATAR_FALLBACK
@@ -84,6 +90,31 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound }: 
               )}
             </div>
           </div>
+
+          {/* Lightbox / zoom de la foto */}
+          {zoom && fixPhotoUrl(persona.fotoUrl) && (
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
+              onClick={() => setZoom(false)}
+            >
+              <img
+                src={fixPhotoUrl(persona.fotoUrl)!}
+                alt={`Foto de ${persona.nombre} ${persona.apellido}`}
+                className="max-h-[92vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
+                onError={(e) => {
+                  e.currentTarget.onerror = null
+                  e.currentTarget.src = AVATAR_FALLBACK
+                }}
+              />
+              <button
+                onClick={() => setZoom(false)}
+                aria-label="Cerrar"
+                className="absolute top-4 right-4 text-3xl leading-none text-white/90 hover:text-white"
+              >
+                &times;
+              </button>
+            </div>
+          )}
 
           {/* Data grid */}
           <div className="grid grid-cols-2 gap-3">
@@ -114,8 +145,16 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound }: 
           {/* Location */}
           {persona.ultimaUbicacion && (
             <div className="bg-red-50 border border-red-100 rounded-lg p-3">
-              <div className="text-xs text-red-400">📍 Último lugar visto</div>
+              <div className="text-xs text-red-400">📍 Última vez vista aquí</div>
               <div className="font-semibold text-sm text-red-800">{persona.ultimaUbicacion}</div>
+              {onLocate && (
+                <button
+                  onClick={() => onLocate(persona)}
+                  className="mt-2 inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                >
+                  🗺️ Ver en el mapa
+                </button>
+              )}
             </div>
           )}
 
