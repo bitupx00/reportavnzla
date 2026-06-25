@@ -327,6 +327,24 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             u ONG y deseas integrar tu información, contáctanos.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a href="https://desaparecidosterremotovenezuela.com" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              <span className="text-lg">🌐</span>
+              <div>
+                <div className="font-medium text-gray-800">Desaparecidos Terremoto VE</div>
+                <div className="text-xs text-gray-400">45,700+ registros</div>
+              </div>
+              <span className="ml-auto text-blue-400">↗</span>
+            </a>
+            <a href="/desarrolladores"
+              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              <span className="text-lg">🔧</span>
+              <div>
+                <div className="font-medium text-gray-800">API para Desarrolladores</div>
+                <div className="text-xs text-gray-400">Documentación REST API</div>
+              </div>
+              <span className="ml-auto text-blue-400">→</span>
+            </a>
             <a href="https://venezuelatebusca.com" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
               <span className="text-lg">🔍</span>
@@ -395,7 +413,9 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <h4 className="text-white font-semibold mb-3">🔗 Enlaces útiles</h4>
               <ul className="text-sm space-y-1">
                 <li><a href="https://venezuelatebusca.com" target="_blank" className="hover:text-white">Venezuela Te Busca</a></li>
+                <li><a href="https://desaparecidosterremotovenezuela.com" target="_blank" className="hover:text-white">Desaparecidos Terremoto VE</a></li>
                 <li><a href="https://funvisis.gob.ve" target="_blank" className="hover:text-white">FUNVISIS</a></li>
+                <li><a href="/desarrolladores" className="hover:text-white">API para Desarrolladores</a></li>
                 <li><a href="https://github.com/bitupx00/reportavnzla" target="_blank" className="hover:text-white">GitHub (código abierto)</a></li>
               </ul>
             </div>
