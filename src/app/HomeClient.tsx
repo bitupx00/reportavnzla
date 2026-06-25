@@ -105,6 +105,12 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     fetchPersonas()
   }, [fetchPersonas])
 
+  // Deep-link: si la URL trae ?p=<id> (enlace compartido), abrir esa persona
+  useEffect(() => {
+    const pid = new URLSearchParams(window.location.search).get('p')
+    if (pid) handleSelectPersona(pid)
+  }, [handleSelectPersona])
+
   const handleSearch = useCallback((params: { q: string; estado: string }) => {
     setSearchParams(params)
     fetchPersonas(params.q, params.estado, 0)

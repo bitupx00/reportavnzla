@@ -160,20 +160,25 @@ export default function AddPersonModal({ isOpen, onClose, onSubmit }: Props) {
           <fieldset className="border border-gray-200 rounded-xl p-4 space-y-4">
             <legend className="text-sm font-semibold text-gray-700 px-2">Datos de la persona</legend>
 
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+              💡 Para evitar registros duplicados, coloca el <strong>nombre completo</strong> (de ser posible los
+              dos nombres y dos apellidos) y la <strong>cédula</strong> si la conoces.
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
-                <input name="nombre" required maxLength={100} className="search-input" placeholder="Nombre" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombres *</label>
+                <input name="nombre" required maxLength={100} className="search-input" placeholder="Ej: María José" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
-                <input name="apellido" required maxLength={100} className="search-input" placeholder="Apellido" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Apellidos *</label>
+                <input name="apellido" required maxLength={100} className="search-input" placeholder="Ej: Pérez Gómez" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cédula (C.I.)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cédula (C.I.) — opcional</label>
                 <input name="cedula" maxLength={20} className="search-input" placeholder="V-12345678" />
               </div>
               <div>

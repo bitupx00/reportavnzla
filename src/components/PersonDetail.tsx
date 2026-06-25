@@ -52,6 +52,8 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
   const [savingFam, setSavingFam] = useState(false)
   const [localFoto, setLocalFoto] = useState<string | null>(null)
   const [uploadingFoto, setUploadingFoto] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   const pid = persona?.id
   useEffect(() => {
@@ -121,6 +123,37 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
 
   const fotoActual = fixPhotoUrl(localFoto || persona.fotoUrl)
 
+  // Enlace para compartir: usa el ID del registro
+  const shareUrl =
+    (typeof window !== 'undefined' ? window.location.origin : 'https://reportavnzla.com') +
+    `/?p=${persona.id}`
+  const shareText = `🔴 Ayúdanos a encontrar a ${persona.nombre} ${persona.apellido}.${
+    persona.ultimaUbicacion ? ` Última vez vista: ${persona.ultimaUbicacion}.` : ''
+  } ReportaVNZLA:`
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      /* clipboard no disponible */
+    }
+  }
+
+  const handleShare = async () => {
+    const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> }
+    if (nav.share) {
+      try {
+        await nav.share({ title: `${persona.nombre} ${persona.apellido}`, text: shareText, url: shareUrl })
+        return
+      } catch {
+        /* cancelado */
+      }
+    }
+    setShareOpen((o) => !o)
+  }
+
   const handleMarkFound = async () => {
     if (!notasEncontrado.trim()) return
     setLoading(true)
@@ -147,8 +180,63 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
               {persona.estado === 'fallecido' && '⚫ Fallecido/a'}
             </span>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+          <div className="relative flex items-center gap-1">
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+              title="Compartir"
+            >
+              🔗 Compartir
+            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-1">&times;</button>
+
+            {/* Menú de compartir (fallback si no hay share nativo) */}
+            {shareOpen && (
+              <div className="absolute right-0 top-10 z-20 w-52 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShareOpen(false)}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+                >
+                  🟢 WhatsApp
+                </a>
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShareOpen(false)}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+                >
+                  ✖️ X (Twitter)
+                </a>
+                <a
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShareOpen(false)}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+                >
+                  🔵 Facebook
+                </a>
+                <button
+                  onClick={() => {
+                    handleCopy()
+                    setShareOpen(false)
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
+                >
+                  📋 Copiar enlace
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+
+        {copied && (
+          <div className="px-6 pt-2 text-center text-xs font-medium text-green-600">✓ Enlace copiado</div>
+        )}
 
         <div className="p-6 space-y-5">
           {/* Photo (click para ampliar) */}
