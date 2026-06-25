@@ -465,12 +465,12 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               </div>
               <span className="ml-auto text-blue-400">↗</span>
             </a>
-            <a href="https://www.cruzrojavenezuela.org" target="_blank" rel="noopener noreferrer"
+            <a href="https://www.icrc.org/es" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm bg-white rounded-xl px-4 py-3 border border-white hover:border-blue-300 hover:shadow-sm transition-all">
               <span className="text-lg">🚑</span>
               <div>
-                <div className="font-medium text-gray-800">Cruz Roja Venezuela</div>
-                <div className="text-xs text-gray-400">Ayuda humanitaria</div>
+                <div className="font-medium text-gray-800">Cruz Roja Internacional (ICRC)</div>
+                <div className="text-xs text-gray-400">Búsqueda familiar y ayuda humanitaria</div>
               </div>
               <span className="ml-auto text-blue-400">↗</span>
             </a>
@@ -519,7 +519,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <ul className="text-sm space-y-1">
                 <li><a href="https://venezuelatebusca.com" target="_blank" className="hover:text-white">Venezuela Te Busca</a></li>
                 <li><a href="https://desaparecidosterremotovenezuela.com" target="_blank" className="hover:text-white">Desaparecidos Terremoto VE</a></li>
-                <li><a href="https://www.cruzrojavenezuela.org" target="_blank" className="hover:text-white">Cruz Roja Venezuela</a></li>
+                <li><a href="https://www.icrc.org/es" target="_blank" className="hover:text-white">Cruz Roja Internacional</a></li>
                 <li><a href="/desarrolladores" className="hover:text-white">API para Desarrolladores</a></li>
                 <li><a href="https://github.com/bitupx00/reportavnzla" target="_blank" className="hover:text-white">GitHub (código abierto)</a></li>
               </ul>
