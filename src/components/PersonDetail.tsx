@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { formatDate, formatCedula, statusColor, fixPhotoUrl, AVATAR_FALLBACK } from '@/lib/utils'
+import { compressImageToDataUrl } from '@/lib/image'
 
 interface Familiar {
   id: string
@@ -99,22 +100,13 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
   const handleAddFoto = async (file: File) => {
     setUploadingFoto(true)
     try {
-      const fd = new FormData()
-      fd.append('personaId', persona.id)
-      fd.append('tipo', 'foto')
-      fd.append('file', file)
-      const r = await fetch('/api/medios', { method: 'POST', body: fd })
-      const d = await r.json()
-      if (d.url) {
-        await fetch('/api/personas', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: persona.id, fotoUrl: d.url }),
-        })
-        setLocalFoto(d.url)
-      } else {
-        alert('No se pudo subir la foto')
-      }
+      const dataUrl = await compressImageToDataUrl(file)
+      await fetch('/api/personas', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: persona.id, fotoUrl: dataUrl }),
+      })
+      setLocalFoto(dataUrl)
     } catch {
       alert('No se pudo subir la foto')
     } finally {

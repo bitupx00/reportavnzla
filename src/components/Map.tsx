@@ -186,39 +186,72 @@ export default function Map({
       layersRef.current.addLayer(zoneMarker)
     })
 
-    // ── PERSON MARKERS ──
+    // ── PERSON MARKERS (agrupados por ubicación) ──
+    const statusLabels: Record<string, string> = {
+      buscado: '🔴 Buscado/a',
+      encontrado: '✅ Encontrado/a vivo/a',
+      fallecido: '⚫ Fallecido/a',
+      'posible-avistamiento': '⚠️ Posible avistamiento',
+    }
+    const colorEstado = (e: string) => (e === 'buscado' ? '#dc2626' : e === 'encontrado' ? '#16a34a' : '#6b7280')
+
+    // Agrupar por coordenada (misma ubicación → mismo punto)
+    const grupos: Record<string, PersonaMarker[]> = {}
     personas.forEach((p) => {
-      const icon = icons[p.estado] || defaultIcon
+      const key = `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`
+      if (!grupos[key]) grupos[key] = []
+      grupos[key].push(p)
+    })
 
-      const marker = L.marker([p.lat, p.lng], { icon })
+    Object.values(grupos).forEach((grupo) => {
+      const first = grupo[0]
 
-      const statusLabels: Record<string, string> = {
-        buscado: '🔴 Buscado/a',
-        encontrado: '✅ Encontrado/a vivo/a',
-        fallecido: '⚫ Fallecido/a',
-        'posible-avistamiento': '⚠️ Posible avistamiento',
+      if (grupo.length === 1) {
+        const p = first
+        const marker = L.marker([p.lat, p.lng], { icon: icons[p.estado] || defaultIcon })
+        const popup = `
+          <div style="min-width:220px;font-family:system-ui">
+            ${fixPhotoUrl(p.fotoUrl) ? `<img src="${fixPhotoUrl(p.fotoUrl)}" onerror="this.onerror=null;this.src='${AVATAR_FALLBACK}'" style="width:60px;height:60px;border-radius:8px;object-fit:cover;float:left;margin-right:10px" />` : ''}
+            <div style="font-weight:700;font-size:15px">${p.nombre} ${p.apellido}</div>
+            <div style="font-size:12px;margin-top:4px;font-weight:600;color:${colorEstado(p.estado)}">${statusLabels[p.estado] || p.estado}</div>
+            ${p.ultimaUbicacion ? `<div style="font-size:12px;margin-top:3px">📍 <strong>${p.ultimaUbicacion}</strong></div>` : ''}
+            ${p.aproximada ? `<div style="font-size:11px;margin-top:3px;color:#b45309">⚠️ Posición aproximada por localidad</div>` : ''}
+            <div style="margin-top:8px;clear:both">
+              <button onclick="window.__selectPersona('${p.id}')" style="background:#dc2626;color:white;border:none;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;width:100%">Ver ficha completa</button>
+            </div>
+          </div>`
+        marker.bindPopup(popup, { maxWidth: 300 })
+        marker.on('click', () => onSelectPersona?.(p.id))
+        layersRef.current.addLayer(marker)
+      } else {
+        // Varias personas en el mismo lugar → marcador con conteo + lista seleccionable
+        const color = colorEstado(first.estado)
+        const clusterIcon = L.divIcon({
+          html: `<div style="background:${color};color:#fff;min-width:34px;height:34px;padding:0 6px;border-radius:17px;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;box-shadow:0 1px 5px rgba(0,0,0,.45)">${grupo.length}</div>`,
+          className: '',
+          iconSize: [34, 34],
+          iconAnchor: [17, 17],
+        })
+        const marker = L.marker([first.lat, first.lng], { icon: clusterIcon })
+        const lista = grupo
+          .slice(0, 60)
+          .map(
+            (p) => `
+            <button onclick="window.__selectPersona('${p.id}')" style="display:flex;gap:8px;width:100%;text-align:left;align-items:center;border:none;background:#fff;border-bottom:1px solid #f0f0f0;padding:6px;cursor:pointer">
+              ${fixPhotoUrl(p.fotoUrl) ? `<img src="${fixPhotoUrl(p.fotoUrl)}" onerror="this.onerror=null;this.src='${AVATAR_FALLBACK}'" style="width:38px;height:38px;border-radius:6px;object-fit:cover;flex-shrink:0"/>` : `<div style="width:38px;height:38px;border-radius:6px;background:#eee;flex-shrink:0"></div>`}
+              <span style="min-width:0"><span style="font-weight:600;font-size:13px;display:block;color:#111">${p.nombre} ${p.apellido}</span><span style="font-size:11px;color:${colorEstado(p.estado)}">${statusLabels[p.estado] || p.estado}</span></span>
+            </button>`
+          )
+          .join('')
+        const popup = `
+          <div style="width:250px;font-family:system-ui">
+            <div style="font-weight:700;font-size:12px;padding:8px;background:#f8f8f8;border-radius:6px 6px 0 0">${grupo.length} personas en ${first.ultimaUbicacion || 'esta zona'} — selecciona:</div>
+            <div style="max-height:280px;overflow-y:auto">${lista}</div>
+            ${grupo.length > 60 ? `<div style="padding:6px;font-size:11px;color:#888">y ${grupo.length - 60} más… (acércate para separar)</div>` : ''}
+          </div>`
+        marker.bindPopup(popup, { maxWidth: 280, minWidth: 250 })
+        layersRef.current.addLayer(marker)
       }
-
-      const popup = `
-        <div style="min-width:220px;font-family:system-ui">
-          ${fixPhotoUrl(p.fotoUrl) ? `<img src="${fixPhotoUrl(p.fotoUrl)}" onerror="this.onerror=null;this.src='${AVATAR_FALLBACK}'" style="width:60px;height:60px;border-radius:8px;object-fit:cover;float:left;margin-right:10px" />` : ''}
-          <div style="font-weight:700;font-size:15px">${p.nombre} ${p.apellido}</div>
-          <div style="font-size:12px;margin-top:4px;font-weight:600;color:${p.estado === 'buscado' ? '#dc2626' : p.estado === 'encontrado' ? '#16a34a' : '#6b7280'}">${statusLabels[p.estado] || p.estado}</div>
-          ${p.cedula ? `<div style="font-size:12px;margin-top:3px">📄 C.I.: <strong>${p.cedula}</strong></div>` : ''}
-          ${p.edad ? `<div style="font-size:12px">👤 Edad: ${p.edad} años</div>` : ''}
-          ${p.ultimaUbicacion ? `<div style="font-size:12px;margin-top:3px">📍 Última ubicación: <strong>${p.ultimaUbicacion}</strong></div>` : ''}
-          ${p.aproximada ? `<div style="font-size:11px;margin-top:3px;color:#b45309">⚠️ Posición aproximada por localidad</div>` : ''}
-          ${p.descripcion ? `<div style="font-size:11px;color:#555;margin-top:4px;line-height:1.4">${p.descripcion.substring(0, 120)}${p.descripcion.length > 120 ? '...' : ''}</div>` : ''}
-          <div style="margin-top:8px">
-            <button onclick="window.__selectPersona('${p.id}')" style="background:#dc2626;color:white;border:none;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;width:100%">Ver ficha completa</button>
-          </div>
-        </div>
-      `
-
-      marker.bindPopup(popup, { maxWidth: 300 })
-      marker.on('click', () => onSelectPersona?.(p.id))
-
-      layersRef.current.addLayer(marker)
     })
 
     // Fit bounds

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { fixPhotoUrl, AVATAR_FALLBACK } from '@/lib/utils'
+import { compressImageToDataUrl } from '@/lib/image'
 
 interface Item {
   id: string
@@ -42,20 +43,11 @@ export default function PorIdentificar({ onSelect }: { onSelect?: (id: string) =
   const handleCapture = async (file: File) => {
     setUploading(true)
     try {
-      const fd = new FormData()
-      fd.append('personaId', 'temp')
-      fd.append('tipo', 'foto')
-      fd.append('file', file)
-      const r = await fetch('/api/medios', { method: 'POST', body: fd })
-      const d = await r.json()
-      if (d.url) {
-        setPendingFoto(d.url)
-        setForm({ ...EMPTY })
-      } else {
-        alert('No se pudo subir la foto')
-      }
+      const dataUrl = await compressImageToDataUrl(file)
+      setPendingFoto(dataUrl)
+      setForm({ ...EMPTY })
     } catch {
-      alert('Error al subir la foto')
+      alert('No se pudo procesar la foto')
     } finally {
       setUploading(false)
     }

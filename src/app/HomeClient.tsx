@@ -11,6 +11,7 @@ import PersonasSlider from '@/components/PersonasSlider'
 import SocialSidebar from '@/components/SocialSidebar'
 import PorIdentificar from '@/components/PorIdentificar'
 import { approxCoords } from '@/lib/utils'
+import { compressImageToDataUrl } from '@/lib/image'
 
 // Dynamic import for Map (no SSR for Leaflet)
 const Map = dynamic(() => import('@/components/Map'), { ssr: false, loading: () => <div className="bg-gray-200 animate-pulse rounded-xl map-container" /> })
@@ -72,10 +73,19 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
   const [currentPage, setCurrentPage] = useState(0)
   const [searchParams, setSearchParams] = useState({ q: '', estado: '' })
   const [socialOpen, setSocialOpen] = useState(false)
+  const [mapPersonas, setMapPersonas] = useState<any[]>([])
 
   // Sidebar de redes: abierto por defecto en desktop, cerrado (cajón) en móvil
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth >= 1024) setSocialOpen(true)
+  }, [])
+
+  // Set grande de personas para el mapa (con ubicación)
+  useEffect(() => {
+    fetch('/api/personas/mapa')
+      .then((r) => r.json())
+      .then((d) => setMapPersonas(d.data || []))
+      .catch(() => {})
   }, [])
 
   // ── Fetch personas on mount (not just initial) ──
@@ -171,15 +181,10 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     let fotoUrl: string | null = null
 
     if (foto && foto.size > 0) {
-      const mediaForm = new FormData()
-      mediaForm.append('personaId', 'temp')
-      mediaForm.append('tipo', 'foto')
-      mediaForm.append('file', foto)
-
-      const mediaRes = await fetch('/api/medios', { method: 'POST', body: mediaForm })
-      if (mediaRes.ok) {
-        const mediaData = await mediaRes.json()
-        fotoUrl = mediaData.url
+      try {
+        fotoUrl = await compressImageToDataUrl(foto)
+      } catch {
+        fotoUrl = null
       }
     }
 
@@ -223,15 +228,17 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
   // cualquiera pueda reconocerlos y completar sus datos.
   const personasVisibles = personas
 
-  // Map markers: only persons with coordinates
-  const mapMarkers = personasVisibles
-    .map((p) => {
-      // Coordenada real si existe; si no, aproximada por localidad (texto).
+  // Para el mapa usamos el set grande (/api/personas/mapa); si aún no llegó,
+  // usamos las visibles. La semilla de coords es la UBICACIÓN para que personas
+  // en el mismo lugar caigan en el mismo punto (y se agrupen en el mapa).
+  const mapSource = mapPersonas.length > 0 ? mapPersonas : personasVisibles
+  const mapMarkers = mapSource
+    .map((p: any) => {
       let lat = p.lat
       let lng = p.lng
       let aproximada = false
       if (!(lat && lng)) {
-        const a = approxCoords(p.ultimaUbicacion, p.id)
+        const a = approxCoords(p.ultimaUbicacion, p.ultimaUbicacion || p.id)
         if (a) {
           lat = a.lat
           lng = a.lng
@@ -243,15 +250,15 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         id: p.id,
         nombre: p.nombre,
         apellido: p.apellido,
-        cedula: p.cedula,
-        edad: p.edad,
+        cedula: p.cedula ?? null,
+        edad: p.edad ?? null,
         estado: p.estado,
         lat,
         lng,
-        ultimaUbicacion: p.ultimaUbicacion,
-        descripcion: p.descripcion,
-        fotoUrl: p.fotoUrl,
-        createdAt: p.createdAt,
+        ultimaUbicacion: p.ultimaUbicacion ?? null,
+        descripcion: p.descripcion ?? null,
+        fotoUrl: p.fotoUrl ?? null,
+        createdAt: p.createdAt ?? '',
         aproximada,
       }
     })
@@ -458,21 +465,21 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               </div>
               <span className="ml-auto text-blue-400">↗</span>
             </a>
-            <a href="https://www.protencioncivil.gob.ve" target="_blank" rel="noopener noreferrer"
+            <a href="https://www.cruzrojavenezuela.org" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm bg-white rounded-xl px-4 py-3 border border-white hover:border-blue-300 hover:shadow-sm transition-all">
-              <span className="text-lg">🛡️</span>
+              <span className="text-lg">🚑</span>
               <div>
-                <div className="font-medium text-gray-800">Protección Civil Venezuela</div>
-                <div className="text-xs text-gray-400">Información oficial</div>
+                <div className="font-medium text-gray-800">Cruz Roja Venezuela</div>
+                <div className="text-xs text-gray-400">Ayuda humanitaria</div>
               </div>
               <span className="ml-auto text-blue-400">↗</span>
             </a>
-            <a href="https://funvisis.gob.ve" target="_blank" rel="noopener noreferrer"
+            <a href="https://www.instagram.com/minci_venezuela/" target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm bg-white rounded-xl px-4 py-3 border border-white hover:border-blue-300 hover:shadow-sm transition-all">
-              <span className="text-lg">🌐</span>
+              <span className="text-lg">📡</span>
               <div>
-                <div className="font-medium text-gray-800">FUNVISIS</div>
-                <div className="text-xs text-gray-400">Fundación Venezolana de Sismología</div>
+                <div className="font-medium text-gray-800">MINCI Venezuela</div>
+                <div className="text-xs text-gray-400">Información oficial del gobierno</div>
               </div>
               <span className="ml-auto text-blue-400">↗</span>
             </a>
@@ -512,7 +519,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <ul className="text-sm space-y-1">
                 <li><a href="https://venezuelatebusca.com" target="_blank" className="hover:text-white">Venezuela Te Busca</a></li>
                 <li><a href="https://desaparecidosterremotovenezuela.com" target="_blank" className="hover:text-white">Desaparecidos Terremoto VE</a></li>
-                <li><a href="https://funvisis.gob.ve" target="_blank" className="hover:text-white">FUNVISIS</a></li>
+                <li><a href="https://www.cruzrojavenezuela.org" target="_blank" className="hover:text-white">Cruz Roja Venezuela</a></li>
                 <li><a href="/desarrolladores" className="hover:text-white">API para Desarrolladores</a></li>
                 <li><a href="https://github.com/bitupx00/reportavnzla" target="_blank" className="hover:text-white">GitHub (código abierto)</a></li>
               </ul>
