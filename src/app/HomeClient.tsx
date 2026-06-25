@@ -83,10 +83,12 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       setTotalPages(data.totalPages || 1)
       setCurrentPage(page)
 
-      // Also fetch updated stats
+      // Also fetch updated stats. /api/v1/stats devuelve { success, data: {...} };
+      // toleramos ambas formas (plana o envuelta en .data) para no quedar en 0.
       const statsRes = await fetch('/api/v1/stats')
-      const statsData = await statsRes.json()
-      if (statsData.total !== undefined) setStats(statsData)
+      const statsJson = await statsRes.json()
+      const statsData = statsJson?.data ?? statsJson
+      if (statsData && statsData.total !== undefined) setStats(statsData)
     } catch (err) {
       console.error('Error fetching:', err)
     } finally {
