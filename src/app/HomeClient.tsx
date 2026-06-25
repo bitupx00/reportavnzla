@@ -9,6 +9,7 @@ import PersonDetail from '@/components/PersonDetail'
 import AddPersonModal from '@/components/AddPersonModal'
 import PersonasSlider from '@/components/PersonasSlider'
 import SocialFeed from '@/components/SocialFeed'
+import PorIdentificar from '@/components/PorIdentificar'
 import { approxCoords } from '@/lib/utils'
 
 // Dynamic import for Map (no SSR for Leaflet)
@@ -212,8 +213,11 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     await fetchPersonas(searchParams.q, searchParams.estado, 0)
   }, [fetchPersonas, searchParams])
 
+  // Excluir "Por identificar" del listado/slider/mapa (van a su propia sección)
+  const personasVisibles = personas.filter((p) => p.nombre !== 'Por identificar')
+
   // Map markers: only persons with coordinates
-  const mapMarkers = personas
+  const mapMarkers = personasVisibles
     .map((p) => {
       // Coordenada real si existe; si no, aproximada por localidad (texto).
       let lat = p.lat
@@ -291,7 +295,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* ═══ SLIDER DE FOTOS DE PERSONAS ═══ */}
-        <PersonasSlider personas={personas} onSelect={handleSelectPersona} />
+        <PersonasSlider personas={personasVisibles} onSelect={handleSelectPersona} />
 
         {/* ═══ HERO / NON-PROFIT STATEMENT ═══ */}
         <section className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 rounded-2xl p-6 sm:p-8">
@@ -364,7 +368,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             </div>
           ) : (
             <>
-              <PersonCard personas={personas} onSelect={handleSelectPersona} />
+              <PersonCard personas={personasVisibles} onSelect={handleSelectPersona} />
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-4 mt-6">
@@ -390,6 +394,9 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             </>
           )}
         </section>
+
+        {/* ═══ PERSONAS POR IDENTIFICAR ═══ */}
+        <PorIdentificar onSelect={handleSelectPersona} />
 
         {/* ═══ DATA SOURCES + EXTERNAL LINKS ═══ */}
         <section className="bg-blue-50 border border-blue-100 rounded-2xl p-6">
