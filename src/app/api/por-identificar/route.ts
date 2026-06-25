@@ -10,6 +10,23 @@ async function ensureSchema() {
   await sql`ALTER TABLE personas ADD COLUMN IF NOT EXISTS sin_identificar boolean DEFAULT false`
 }
 
+// DELETE /api/por-identificar?id=<id> — elimina una entrada por identificar
+// (solo borra registros sin_identificar = true, nunca personas reportadas normales)
+export async function DELETE(request: NextRequest) {
+  try {
+    const id = new URL(request.url).searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+    await ensureSchema()
+    const sql = sqlRaw()
+    const rows = (await sql`
+      DELETE FROM personas WHERE id = ${id} AND sin_identificar = true RETURNING id`) as Array<{ id: string }>
+    if (!rows[0]) return NextResponse.json({ error: 'No encontrada (o no es por-identificar)' }, { status: 404 })
+    return NextResponse.json({ ok: true, eliminado: rows[0].id })
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 })
+  }
+}
+
 // GET /api/por-identificar — lista de personas por identificar
 export async function GET() {
   try {
