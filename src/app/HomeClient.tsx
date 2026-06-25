@@ -120,7 +120,8 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
   }, [])
 
   // Centrar el mapa en una persona (coord real o aproximada por localidad)
-  const handleLocate = useCallback((p: Persona) => {
+  const handleLocate = useCallback(
+    (p: { id: string; lat: number | null; lng: number | null; ultimaUbicacion: string | null }) => {
     let lat = p.lat
     let lng = p.lng
     if (!(lat && lng)) {
