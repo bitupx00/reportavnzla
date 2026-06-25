@@ -8,17 +8,22 @@ export const dynamic = 'force-dynamic'
 // GET /api/stats
 export async function GET() {
   try {
-    const result = await db
-      .select({
-        buscados: sql<number>`count(*)::int FILTER (WHERE ${personas.estado} = 'buscado')`,
-        encontrados: sql<number>`count(*)::int FILTER (WHERE ${personas.estado} = 'encontrado')`,
-        fallecidos: sql<number>`count(*)::int FILTER (WHERE ${personas.estado} = 'fallecido')`,
-        total: sql<number>`count(*)::int`,
-      })
-      .from(personas)
+    const [buscados, encontrados, fallecidos, total] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+        .where(sql`${personas.estado} = 'buscado'`),
+      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+        .where(sql`${personas.estado} = 'encontrado'`),
+      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+        .where(sql`${personas.estado} = 'fallecido'`),
+      db.select({ count: sql<number>`count(*)::int` }).from(personas),
+    ])
 
-    const stats = result[0] || { total: 0, buscados: 0, encontrados: 0, fallecidos: 0 }
-    return NextResponse.json(stats)
+    return NextResponse.json({
+      total: total[0]?.count || 0,
+      buscados: buscados[0]?.count || 0,
+      encontrados: encontrados[0]?.count || 0,
+      fallecidos: fallecidos[0]?.count || 0,
+    })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

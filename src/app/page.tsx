@@ -1,25 +1,29 @@
 import { db } from '@/db'
 import { personas, zonasAfectadas } from '@/db/schema'
-import { sql, desc } from 'drizzle-orm'
+import { sql, desc, eq } from 'drizzle-orm'
 import HomeClient from './HomeClient'
 
 export const dynamic = 'force-dynamic'
 
-const emptyStats = { total: 0, buscados: 0, encontrados: 0, fallecidos: 0 }
-
 async function getInitialStats() {
   try {
-    const result = await db
-      .select({
-        total: sql<number>`count(*)::int`,
-        buscados: sql<number>`count(*)::int FILTER (WHERE ${personas.estado} = 'buscado')`,
-        encontrados: sql<number>`count(*)::int FILTER (WHERE ${personas.estado} = 'encontrado')`,
-        fallecidos: sql<number>`count(*)::int FILTER (WHERE ${personas.estado} = 'fallecido')`,
-      })
-      .from(personas)
-    return result[0] || emptyStats
+    const [buscados, encontrados, fallecidos, total] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+        .where(sql`${personas.estado} = 'buscado'`),
+      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+        .where(sql`${personas.estado} = 'encontrado'`),
+      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+        .where(sql`${personas.estado} = 'fallecido'`),
+      db.select({ count: sql<number>`count(*)::int` }).from(personas),
+    ])
+    return {
+      total: total[0]?.count || 0,
+      buscados: buscados[0]?.count || 0,
+      encontrados: encontrados[0]?.count || 0,
+      fallecidos: fallecidos[0]?.count || 0,
+    }
   } catch {
-    return emptyStats
+    return { total: 0, buscados: 0, encontrados: 0, fallecidos: 0 }
   }
 }
 
