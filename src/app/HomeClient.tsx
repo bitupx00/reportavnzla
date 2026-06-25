@@ -251,11 +251,11 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
-              src="/reportavnzla.jpg"
+              src="/logo.png"
               alt="ReportaVNZLA"
               width={44}
               height={44}
-              className="h-11 w-11 rounded-lg object-cover shadow-sm"
+              className="h-11 w-11"
             />
             <div>
               <h1 className="text-xl font-bold text-gray-900">ReportaVNZLA</h1>
