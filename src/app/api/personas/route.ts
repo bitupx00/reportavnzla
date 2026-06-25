@@ -16,13 +16,26 @@ export async function GET(request: NextRequest) {
 
   const conditions = []
   if (q) {
-    conditions.push(
-      or(
-        ilike(personas.nombre, `%${q}%`),
-        ilike(personas.apellido, `%${q}%`),
-        ilike(personas.cedula, `%${q}%`)
+    // If query has spaces, search each word across nombre + apellido
+    const words = q.trim().split(/\s+/).filter(Boolean)
+    if (words.length > 1) {
+      const wordConditions = words.map(word =>
+        or(
+          ilike(personas.nombre, `%${word}%`),
+          ilike(personas.apellido, `%${word}%`),
+          ilike(personas.cedula, `%${word}%`)
+        )
       )
-    )
+      conditions.push(and(...wordConditions))
+    } else {
+      conditions.push(
+        or(
+          ilike(personas.nombre, `%${q}%`),
+          ilike(personas.apellido, `%${q}%`),
+          ilike(personas.cedula, `%${q}%`)
+        )
+      )
+    }
   }
   if (estado) {
     conditions.push(eq(personas.estado, estado as any))

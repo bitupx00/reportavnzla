@@ -56,15 +56,30 @@ export async function GET(request: NextRequest) {
   // Build conditions
   const conditions = []
   if (q) {
-    conditions.push(
-      or(
-        ilike(personas.nombre, `%${q}%`),
-        ilike(personas.apellido, `%${q}%`),
-        ilike(personas.cedula, `%${q}%`),
-        ilike(personas.ultimaUbicacion, `%${q}%`),
-        ilike(personas.descripcion, `%${q}%`),
+    // If query has spaces, search each word across all text fields
+    const words = q.trim().split(/\s+/).filter(Boolean)
+    if (words.length > 1) {
+      const wordConditions = words.map(word =>
+        or(
+          ilike(personas.nombre, `%${word}%`),
+          ilike(personas.apellido, `%${word}%`),
+          ilike(personas.cedula, `%${word}%`),
+          ilike(personas.ultimaUbicacion, `%${word}%`),
+          ilike(personas.descripcion, `%${word}%`),
+        )
       )
-    )
+      conditions.push(and(...wordConditions))
+    } else {
+      conditions.push(
+        or(
+          ilike(personas.nombre, `%${q}%`),
+          ilike(personas.apellido, `%${q}%`),
+          ilike(personas.cedula, `%${q}%`),
+          ilike(personas.ultimaUbicacion, `%${q}%`),
+          ilike(personas.descripcion, `%${q}%`),
+        )
+      )
+    }
   }
   if (estado) conditions.push(eq(personas.estado, estado as any))
   if (cedula) conditions.push(ilike(personas.cedula, `%${cedula}%`))
