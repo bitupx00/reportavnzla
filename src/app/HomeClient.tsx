@@ -8,6 +8,7 @@ import PersonCard from '@/components/PersonCard'
 import PersonDetail from '@/components/PersonDetail'
 import AddPersonModal from '@/components/AddPersonModal'
 import PersonasSlider from '@/components/PersonasSlider'
+import SocialFeed from '@/components/SocialFeed'
 import { approxCoords } from '@/lib/utils'
 
 // Dynamic import for Map (no SSR for Leaflet)
@@ -437,6 +438,9 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             </a>
           </div>
         </section>
+
+        {/* ═══ REDES SOCIALES ═══ */}
+        <SocialFeed />
       </div>
 
       {/* ═══ FOOTER ═══ */}
