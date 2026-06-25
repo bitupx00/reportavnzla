@@ -1,236 +1,161 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/db'
-import { personas } from '@/db/schema'
-import { sql } from 'drizzle-orm'
+import { sqlRaw } from '@/db'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
-// ─── Analyze duplicates in the database ─────────────────────
-// POST /api/v1/dedup/analyze — returns full duplicate analysis
-// POST /api/v1/dedup/analyze { action: "cleanup" } — actually removes duplicates
-export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({}))
-  const action = body.action || 'analyze'
+/**
+ * One-time dedup endpoint.
+ *
+ * GET  /api/v1/dedup          → dry-run: report duplicate counts (no changes)
+ * POST /api/v1/dedup          → actually delete duplicates (requires DEDUP_SECRET)
+ *
+ * Strategy: match on LOWER(TRIM(nombre)) + LOWER(TRIM(apellido)) + LOWER(TRIM(COALESCE(ultima_ubicacion,'')))
+ * Keep the BEST record per group:
+ *   1. Has external_id   >  no external_id
+ *   2. Has foto_url      >  no foto_url
+ *   3. Newer created_at  >  older created_at
+ */
 
+async function dryRun(sql: ReturnType<typeof sqlRaw>) {
+  const total = (await sql`SELECT count(*)::int AS c FROM personas`) as Array<{ c: number }>
+  const stats = (await sql`
+    SELECT count(*)::int AS groups, (sum(cnt) - count(*))::int AS removable
+    FROM (
+      SELECT lower(trim(nombre)) AS n,
+             lower(trim(apellido)) AS a,
+             lower(trim(coalesce(ultima_ubicacion, ''))) AS u,
+             count(*) AS cnt
+      FROM personas
+      WHERE nombre IS NOT NULL AND trim(nombre) <> ''
+        AND apellido IS NOT NULL AND trim(apellido) <> ''
+      GROUP BY n, a, u
+      HAVING count(*) > 1
+    ) t
+  `) as Array<{ groups: number; removable: number }>
+
+  const examples = (await sql`
+    SELECT lower(trim(nombre)) || ' ' || lower(trim(apellido)) AS persona,
+           coalesce(ultima_ubicacion, '(sin ubicación)') AS ubicacion,
+           count(*)::int AS veces
+    FROM personas
+    WHERE nombre IS NOT NULL AND trim(nombre) <> ''
+      AND apellido IS NOT NULL AND trim(apellido) <> ''
+    GROUP BY 1, 2
+    HAVING count(*) > 1
+    ORDER BY 3 DESC
+    LIMIT 15
+  `) as Array<Record<string, unknown>>
+
+  return {
+    action: 'dry_run',
+    records_before: total[0].c,
+    duplicate_groups: stats[0].groups,
+    duplicates_would_remove: stats[0].removable,
+    records_would_remain: total[0].c - stats[0].removable,
+    top_duplicates: examples,
+  }
+}
+
+async function applyDedup(sql: ReturnType<typeof sqlRaw>) {
+  const before = (await sql`SELECT count(*)::int AS c FROM personas`) as Array<{ c: number }>
+
+  // Get duplicate group stats before deleting
+  const stats = (await sql`
+    SELECT count(*)::int AS groups, (sum(cnt) - count(*))::int AS removable
+    FROM (
+      SELECT lower(trim(nombre)) AS n,
+             lower(trim(apellido)) AS a,
+             lower(trim(coalesce(ultima_ubicacion, ''))) AS u,
+             count(*) AS cnt
+      FROM personas
+      WHERE nombre IS NOT NULL AND trim(nombre) <> ''
+        AND apellido IS NOT NULL AND trim(apellido) <> ''
+      GROUP BY n, a, u
+      HAVING count(*) > 1
+    ) t
+  `) as Array<{ groups: number; removable: number }>
+
+  const groupCount = stats[0].groups
+
+  if (groupCount === 0) {
+    const after = (await sql`SELECT count(*)::int AS c FROM personas`) as Array<{ c: number }>
+    return {
+      action: 'dedup_applied',
+      records_before: before[0].c,
+      total_groups: 0,
+      duplicates_removed: 0,
+      records_remaining: after[0].c,
+    }
+  }
+
+  // Delete duplicates using ROW_NUMBER: rank within each group, keep rank=1
+  const result = await sql`
+    WITH ranked AS (
+      SELECT id,
+        ROW_NUMBER() OVER (
+          PARTITION BY
+            lower(trim(nombre)),
+            lower(trim(apellido)),
+            lower(trim(coalesce(ultima_ubicacion, '')))
+          ORDER BY
+            (external_id IS NOT NULL)::int DESC,
+            (foto_url IS NOT NULL)::int DESC,
+            created_at DESC
+        ) AS rn
+      FROM personas
+      WHERE nombre IS NOT NULL AND trim(nombre) <> ''
+        AND apellido IS NOT NULL AND trim(apellido) <> ''
+    )
+    DELETE FROM personas
+    WHERE id IN (SELECT id FROM ranked WHERE rn > 1)
+  `
+
+  // neon returns count for write operations
+  const deletedCount = typeof result === 'number' ? result : (result as any).count ?? 0
+
+  const after = (await sql`SELECT count(*)::int AS c FROM personas`) as Array<{ c: number }>
+
+  return {
+    action: 'dedup_applied',
+    records_before: before[0].c,
+    total_groups: groupCount,
+    expected_removals: stats[0].removable,
+    duplicates_removed: deletedCount,
+    records_remaining: after[0].c,
+  }
+}
+
+// GET = dry-run (safe, no changes)
+export async function GET() {
   try {
-    // ── 1. Overview ──
-    const overview = await db().execute(sql`
-      SELECT
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE external_id IS NULL) as no_ext_id,
-        COUNT(*) FILTER (WHERE external_id LIKE 'vtb-%') as vtb,
-        COUNT(*) FILTER (WHERE external_id LIKE 'dtv-%') as dtv
-      FROM personas
-    `)
-    const stats = overview.rows[0]
+    const sql = sqlRaw()
+    const result = await dryRun(sql)
+    return NextResponse.json({ success: true, ...result })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ success: false, error: msg }, { status: 500 })
+  }
+}
 
-    // ── 2. Duplicates by external_id ──
-    const dupByExtId = await db().execute(sql`
-      SELECT external_id, COUNT(*) as cnt
-      FROM personas
-      WHERE external_id IS NOT NULL
-      GROUP BY external_id
-      HAVING COUNT(*) > 1
-      ORDER BY cnt DESC
-      LIMIT 50
-    `)
+// POST = actually delete duplicates (requires secret)
+export async function POST(request: Request) {
+  try {
+    const body = await request.json().catch(() => ({}))
+    const secret = body.secret
 
-    // ── 3. Duplicates by name similarity (same nombre+apellido, different id) ──
-    const dupByName = await db().execute(sql`
-      SELECT 
-        LOWER(TRIM(nombre)) as nombre,
-        LOWER(TRIM(apellido)) as apellido,
-        COUNT(*) as cnt,
-        array_agg(id ORDER BY created_at) as ids,
-        array_agg(external_id ORDER BY created_at) as ext_ids,
-        array_agg(estado ORDER BY created_at) as estados
-      FROM personas
-      WHERE nombre IS NOT NULL AND nombre != '' 
-        AND apellido IS NOT NULL AND apellido != ''
-      GROUP BY LOWER(TRIM(nombre)), LOWER(TRIM(apellido))
-      HAVING COUNT(*) > 1
-      ORDER BY cnt DESC
-      LIMIT 100
-    `)
-
-    // ── 4. Duplicates by cédula ──
-    const dupByCedula = await db().execute(sql`
-      SELECT cedula, COUNT(*) as cnt,
-        array_agg(id ORDER BY created_at) as ids
-      FROM personas
-      WHERE cedula IS NOT NULL AND TRIM(cedula) != ''
-      GROUP BY cedula
-      HAVING COUNT(*) > 1
-      ORDER BY cnt DESC
-      LIMIT 50
-    `)
-
-    // ── 5. Cross-source duplicates: same person from both VTB and DTV ──
-    const crossSource = await db().execute(sql`
-      SELECT 
-        LOWER(TRIM(p1.nombre)) as nombre,
-        LOWER(TRIM(p1.apellido)) as apellido,
-        p1.cedula as cedula,
-        p1.id as id1, p1.external_id as ext1, p1.estado as estado1,
-        p2.id as id2, p2.external_id as ext2, p2.estado as estado2
-      FROM personas p1
-      JOIN personas p2 ON 
-        LOWER(TRIM(p1.nombre)) = LOWER(TRIM(p2.nombre))
-        AND LOWER(TRIM(p1.apellido)) = LOWER(TRIM(p2.apellido))
-        AND p1.id < p2.id
-        AND p1.external_id LIKE 'vtb-%' 
-        AND p2.external_id LIKE 'dtv-%'
-      LIMIT 50
-    `)
-
-    // ── 6. Records with no external_id at all ──
-    const noExtId = await db().execute(sql`
-      SELECT COUNT(*) as cnt FROM personas WHERE external_id IS NULL
-    `)
-
-    // ── 7. Same source duplicates (exact name match within same source) ──
-    const sameSourceDup = await db().execute(sql`
-      SELECT 
-        CASE WHEN external_id LIKE 'vtb-%' THEN 'vtb' WHEN external_id LIKE 'dtv-%' THEN 'dtv' ELSE 'unknown' END as source,
-        COUNT(*) as duplicate_groups,
-        SUM(cnt - 1) as duplicate_records
-      FROM (
-        SELECT external_id, COUNT(*) as cnt
-        FROM personas
-        WHERE external_id IS NOT NULL
-        GROUP BY external_id
-        HAVING COUNT(*) > 1
-      ) sub
-      GROUP BY source
-    `)
-
-    // ── 8. Summary stats ──
-    const totalByExtIdDup = await db().execute(sql`
-      SELECT COUNT(*) as groups, SUM(cnt - 1) as removable
-      FROM (
-        SELECT external_id, COUNT(*) as cnt
-        FROM personas
-        WHERE external_id IS NOT NULL
-        GROUP BY external_id
-        HAVING COUNT(*) > 1
-      ) sub
-    `)
-
-    const totalByNameDup = await db().execute(sql`
-      SELECT COUNT(*) as groups, SUM(cnt - 1) as removable
-      FROM (
-        SELECT LOWER(TRIM(nombre)) as n, LOWER(TRIM(apellido)) as a, COUNT(*) as cnt
-        FROM personas
-        WHERE nombre IS NOT NULL AND nombre != '' AND apellido IS NOT NULL AND apellido != ''
-        GROUP BY LOWER(TRIM(nombre)), LOWER(TRIM(apellido))
-        HAVING COUNT(*) > 1
-      ) sub
-    `)
-
-    if (action === 'cleanup') {
-      // ── CLEANUP: remove duplicates ──
-      // Strategy: keep the record with the most data (earliest created_at, has external_id, has photo)
-      const results: any = {}
-
-      // Step 1: Remove exact external_id duplicates (keep oldest)
-      const removedExt = await db().execute(sql`
-        DELETE FROM personas p1
-        WHERE EXISTS (
-          SELECT 1 FROM personas p2 
-          WHERE p2.external_id = p1.external_id 
-            AND p2.external_id IS NOT NULL
-            AND p2.created_at < p1.created_at
-        )
-      `)
-      results.removedByExternalId = removedExt.rowCount || 0
-
-      // Step 2: Remove name duplicates within same source (keep oldest with external_id)
-      const removedName = await db().execute(sql`
-        DELETE FROM personas p1
-        WHERE EXISTS (
-          SELECT 1 FROM personas p2 
-          WHERE LOWER(TRIM(p2.nombre)) = LOWER(TRIM(p1.nombre))
-            AND LOWER(TRIM(p2.apellido)) = LOWER(TRIM(p1.apellido))
-            AND p2.id < p1.id
-            AND (
-              (p1.external_id LIKE 'vtb-%' AND p2.external_id LIKE 'vtb-%')
-              OR
-              (p1.external_id LIKE 'dtv-%' AND p2.external_id LIKE 'dtv-%')
-            )
-        )
-      `)
-      results.removedByName = removedName.rowCount || 0
-
-      // Step 3: Merge cross-source duplicates (keep the one with more data)
-      // First, keep records that have status "encontrado" over "buscado"
-      // Then keep the older record among equals
-      const crossRemoved = await db().execute(sql`
-        DELETE FROM personas p2
-        WHERE EXISTS (
-          SELECT 1 FROM personas p1 
-          WHERE LOWER(TRIM(p1.nombre)) = LOWER(TRIM(p2.nombre))
-            AND LOWER(TRIM(p1.apellido)) = LOWER(TRIM(p2.apellido))
-            AND p1.created_at < p2.created_at
-            AND p1.external_id LIKE 'vtb-%'
-            AND p2.external_id LIKE 'dtv-%'
-        )
-      `)
-      results.mergedCrossSource = crossRemoved.rowCount || 0
-
-      // Step 4: Remaining cross-source where DTV is older than VTB
-      const crossRemoved2 = await db().execute(sql`
-        DELETE FROM personas p2
-        WHERE EXISTS (
-          SELECT 1 FROM personas p1 
-          WHERE LOWER(TRIM(p1.nombre)) = LOWER(TRIM(p2.nombre))
-            AND LOWER(TRIM(p1.apellido)) = LOWER(TRIM(p2.apellido))
-            AND p1.id <> p2.id
-            AND p1.external_id LIKE 'vtb-%'
-            AND p2.external_id LIKE 'dtv-%'
-        )
-      `)
-      results.mergedCrossSource2 = crossRemoved2.rowCount || 0
-
-      // Final count
-      const finalCount = await db().execute(sql`SELECT COUNT(*) as total FROM personas`)
-      results.totalAfter = finalCount.rows[0].total
-      results.totalRemoved = results.removedByExternalId + results.removedByName + results.mergedCrossSource + (results.mergedCrossSource2 || 0)
-
-      return NextResponse.json({ success: true, action: 'cleanup', results })
+    if (!process.env.DEDUP_SECRET || secret !== process.env.DEDUP_SECRET) {
+      return NextResponse.json(
+        { success: false, error: 'secret inválido o DEDUP_SECRET no configurado' },
+        { status: 403 },
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      action: 'analyze',
-      overview: stats,
-      duplicates: {
-        byExternalId: {
-          groups: totalByExtIdDup.rows[0]?.groups || 0,
-          removableRecords: totalByExtIdDup.rows[0]?.removable || 0,
-          examples: dupByExtId.rows,
-        },
-        byName: {
-          groups: (totalByNameDup.rows[0] as any)?.groups || 0,
-          removableRecords: (totalByNameDup.rows[0] as any)?.removable || 0,
-          examples: dupByName.rows.slice(0, 20) as any[],
-        },
-        byCedula: {
-          groups: dupByCedula.rows.length,
-          examples: dupByCedula.rows.slice(0, 10),
-        },
-        crossSource: {
-          pairs: crossSource.rows.length,
-          examples: crossSource.rows.slice(0, 10),
-        },
-      },
-      sameSourceBreakdown: sameSourceDup.rows,
-      noExternalId: noExtId.rows[0]?.cnt || 0,
-      estimatedRemovable:
-        (parseInt(String(totalByExtIdDup.rows[0]?.removable)) || 0) +
-        (parseInt(String((totalByNameDup.rows[0] as any)?.removable)) || 0),
-    })
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    const sql = sqlRaw()
+    const result = await applyDedup(sql)
+    return NextResponse.json({ success: true, ...result })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ success: false, error: msg }, { status: 500 })
   }
 }
