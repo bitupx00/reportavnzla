@@ -65,9 +65,6 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
   const [totalPages, setTotalPages] = useState(1)
   const [currentPage, setCurrentPage] = useState(0)
   const [searchParams, setSearchParams] = useState({ q: '', estado: '' })
-  const [addingLocation, setAddingLocation] = useState(false)
-  const [pickedLat, setPickedLat] = useState<number | null>(null)
-  const [pickedLng, setPickedLng] = useState<number | null>(null)
 
   // ── Fetch personas on mount (not just initial) ──
   const fetchPersonas = useCallback(async (q = '', estado = '', page = 0) => {
@@ -127,13 +124,6 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     setSelectedPersona(null)
   }, [fetchPersonas, searchParams, currentPage])
 
-  const handleMapClick = useCallback((lat: number, lng: number) => {
-    setPickedLat(lat)
-    setPickedLng(lng)
-    setAddingLocation(false)
-    setShowAddModal(true)
-  }, [])
-
   const handleAddPerson = useCallback(async (formData: FormData) => {
     const foto = formData.get('foto') as File | null
     let fotoUrl: string | null = null
@@ -161,18 +151,17 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       ultimaUbicacion: formData.get('ultimaUbicacion') || null,
       descripcion: formData.get('descripcion') || null,
       fotoUrl,
-      reportadoPorNombre: formData.get('reportadoPorNombre'),
+      reportadoPorNombre: formData.get('reportadoPorNombre') || null,
       reportadoPorTelefono: formData.get('reportadoPorTelefono') || null,
       reportadoPorEmail: formData.get('reportadoPorEmail') || null,
     }
 
-    // Use picked coordinates from map if available
-    if (pickedLat !== null && pickedLng !== null) {
-      body.lat = pickedLat
-      body.lng = pickedLng
-    } else if (formData.get('lat')) {
-      body.lat = parseFloat(formData.get('lat') as string)
-      body.lng = parseFloat(formData.get('lng') as string)
+    // Coordinates from the address lookup in the form
+    const lat = formData.get('lat') as string
+    const lng = formData.get('lng') as string
+    if (lat && lng) {
+      body.lat = parseFloat(lat)
+      body.lng = parseFloat(lng)
     }
 
     const res = await fetch('/api/personas', {
@@ -185,10 +174,8 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       throw new Error(error.error || 'Error al publicar')
     }
 
-    setPickedLat(null)
-    setPickedLng(null)
     await fetchPersonas(searchParams.q, searchParams.estado, 0)
-  }, [fetchPersonas, searchParams, pickedLat, pickedLng])
+  }, [fetchPersonas, searchParams])
 
   // Map markers: only persons with coordinates
   const mapMarkers = personas
@@ -225,20 +212,12 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <p className="text-xs text-gray-500">Venezuela Te Encuentra — Sin fines de lucro</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setAddingLocation(!addingLocation)}
-              className={`text-sm px-3 py-2 rounded-lg border transition-all ${addingLocation ? 'bg-yellow-500 border-yellow-600 text-black font-bold' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-            >
-              📍 {addingLocation ? 'Seleccionando...' : 'Marcar en mapa'}
-            </button>
-            <button
-              onClick={() => { setPickedLat(null); setPickedLng(null); setShowAddModal(true) }}
-              className="btn-primary text-sm sm:text-base"
-            >
-              📢 + Registrar persona
-            </button>
-          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary text-sm sm:text-base"
+          >
+            📢 + Registrar persona
+          </button>
         </div>
       </header>
 
@@ -269,19 +248,15 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         <section>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-gray-800">🗺️ Mapa interactivo — Zonas afectadas y ubicaciones</h3>
+            <a href="https://github.com/bitupx00/reportavnzla" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600">
+              Código abierto ↗
+            </a>
           </div>
           <Map
             personas={mapMarkers}
             zonas={zonas}
             onSelectPersona={handleSelectPersona}
-            onAddLocation={handleMapClick}
-            addingLocation={addingLocation}
           />
-          {pickedLat !== null && (
-            <div className="mt-2 text-sm text-yellow-700 bg-yellow-50 rounded-lg px-3 py-2 border border-yellow-200">
-              📍 Ubicación seleccionada: {pickedLat.toFixed(4)}, {pickedLng?.toFixed(4)} — Se usará al registrar una persona
-            </div>
-          )}
         </section>
 
         {/* ═══ SEARCH + LIST ═══ */}
@@ -290,7 +265,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             <h3 className="font-semibold text-gray-800">
               📋 Listado de personas ({stats.total})
             </h3>
-            <button onClick={() => { setPickedLat(null); setPickedLng(null); setShowAddModal(true) }} className="text-sm text-red-600 hover:text-red-700 font-medium">
+            <button onClick={() => setShowAddModal(true)} className="text-sm text-red-600 hover:text-red-700 font-medium">
               + Registrar nueva persona
             </button>
           </div>
@@ -308,9 +283,12 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
               <div className="text-4xl mb-3">📋</div>
               <h4 className="font-semibold text-gray-700 mb-1">No hay registros aún</h4>
-              <p className="text-gray-400 text-sm">
+              <p className="text-gray-400 text-sm mb-4">
                 Sé el primero en reportar una persona. Cada registro cuenta.
               </p>
+              <button onClick={() => setShowAddModal(true)} className="btn-primary">
+                📢 Registrar persona
+              </button>
             </div>
           ) : (
             <>
@@ -341,19 +319,50 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
           )}
         </section>
 
-        {/* ═══ DATA SOURCES ═══ */}
+        {/* ═══ DATA SOURCES + EXTERNAL LINKS ═══ */}
         <section className="bg-blue-50 border border-blue-100 rounded-2xl p-6">
-          <h3 className="font-semibold text-blue-800 mb-2">🔄 Fuentes de datos</h3>
-          <p className="text-sm text-blue-600">
-            Esta plataforma sincroniza datos de múltiples fuentes públicas: venezuelatebusca.com y otras plataformas
-            de registro. Si representas un centro de datos u ONG y deseas integrar tu información,
-            contáctanos. Los datos se actualizan automáticamente.
+          <h3 className="font-semibold text-blue-800 mb-2">🔄 Fuentes de datos y recursos</h3>
+          <p className="text-sm text-blue-600 mb-4">
+            Esta plataforma sincroniza datos de múltiples fuentes públicas. Si representas un centro de datos
+            u ONG y deseas integrar tu información, contáctanos.
           </p>
-          <div className="flex flex-wrap gap-2 mt-3">
-            <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full">venezuelatebusca.com</span>
-            <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full">Reportes ciudadanos</span>
-            <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full">Análisis IA (GLM-5)</span>
-            <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full">+ Fuentes por agregar</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a href="https://venezuelatebusca.com" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              <span className="text-lg">🔍</span>
+              <div>
+                <div className="font-medium text-gray-800">Venezuela Te Busca</div>
+                <div className="text-xs text-gray-400">venezuelatebusca.com</div>
+              </div>
+              <span className="ml-auto text-blue-400">↗</span>
+            </a>
+            <a href="https://github.com/bitupx00/reportavnzla" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              <span className="text-lg">💻</span>
+              <div>
+                <div className="font-medium text-gray-800">Código en GitHub</div>
+                <div className="text-xs text-gray-400">Contribuye al proyecto</div>
+              </div>
+              <span className="ml-auto text-blue-400">↗</span>
+            </a>
+            <a href="https://www.protencioncivil.gob.ve" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              <span className="text-lg">🛡️</span>
+              <div>
+                <div className="font-medium text-gray-800">Protección Civil Venezuela</div>
+                <div className="text-xs text-gray-400">Información oficial</div>
+              </div>
+              <span className="ml-auto text-blue-400">↗</span>
+            </a>
+            <a href="https://funvisis.gob.ve" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              <span className="text-lg">🌐</span>
+              <div>
+                <div className="font-medium text-gray-800">FUNVISIS</div>
+                <div className="text-xs text-gray-400">Fundación Venezolana de Sismología</div>
+              </div>
+              <span className="ml-auto text-blue-400">↗</span>
+            </a>
           </div>
         </section>
       </div>
@@ -361,13 +370,18 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       {/* ═══ FOOTER ═══ */}
       <footer className="bg-gray-900 text-gray-400 mt-12">
         <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h4 className="text-white font-semibold mb-3">🇻🇪 ReportaVNZLA</h4>
               <p className="text-sm leading-relaxed">
                 Iniciativa solidaria, gratuita y sin fines de lucro.
                 Nuestro único objetivo es ayudar a reunir familias.
               </p>
+              <div className="flex gap-3 mt-3">
+                <a href="https://github.com/bitupx00/reportavnzla" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
+                  GitHub
+                </a>
+              </div>
             </div>
             <div>
               <h4 className="text-white font-semibold mb-3">📞 Emergencias</h4>
@@ -375,6 +389,14 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
                 <li>171 — Emergencias nacionales</li>
                 <li>911 — Policía / Bomberos</li>
                 <li>*1 — Protección Civil</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-semibold mb-3">🔗 Enlaces útiles</h4>
+              <ul className="text-sm space-y-1">
+                <li><a href="https://venezuelatebusca.com" target="_blank" className="hover:text-white">Venezuela Te Busca</a></li>
+                <li><a href="https://funvisis.gob.ve" target="_blank" className="hover:text-white">FUNVISIS</a></li>
+                <li><a href="https://github.com/bitupx00/reportavnzla" target="_blank" className="hover:text-white">GitHub (código abierto)</a></li>
               </ul>
             </div>
             <div>
@@ -388,7 +410,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
           </div>
           <div className="border-t border-gray-800 mt-6 pt-6 text-center text-xs text-gray-500">
             <p>ReportaVNZLA · Iniciativa solidaria · Sin fines de lucro · Terremoto Venezuela 2026</p>
-            <p className="mt-1">Datos abiertos para la comunidad · Código abierto en GitHub</p>
+            <p className="mt-1">Datos abiertos para la comunidad · <a href="https://github.com/bitupx00/reportavnzla" className="hover:text-white">Código abierto en GitHub</a></p>
           </div>
         </div>
       </footer>
@@ -396,10 +418,8 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       {/* ═══ MODALS ═══ */}
       <AddPersonModal
         isOpen={showAddModal}
-        onClose={() => { setShowAddModal(false); setPickedLat(null); setPickedLng(null) }}
+        onClose={() => setShowAddModal(false)}
         onSubmit={handleAddPerson}
-        prefillLat={pickedLat}
-        prefillLng={pickedLng}
       />
 
       <PersonDetail

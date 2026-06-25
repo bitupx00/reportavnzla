@@ -1,28 +1,34 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 // ── Custom markers: Red (buscado), Yellow (posible avistamiento), Green (encontrado), Gray (fallecido) ──
-function createIcon(color: string, emoji: string) {
+function createIcon(color: string, emoji: string, pulse = false) {
+  const pulseStyle = pulse
+    ? `<div style="position:absolute;top:-6px;left:-6px;width:40px;height:40px;border-radius:50%;border:2px solid ${color};animation:pulse-ring 2s ease-out infinite;opacity:0.6"></div>`
+    : ''
   return L.divIcon({
-    html: `<div style="background:${color};width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1">${emoji}</div>`,
+    html: `<div style="position:relative">
+      <div style="background:${color};width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1">${emoji}</div>
+      ${pulseStyle}
+    </div>`,
     className: '',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -16],
+    iconSize: pulse ? [40, 40] : [28, 28],
+    iconAnchor: pulse ? [20, 20] : [14, 14],
+    popupAnchor: [0, pulse ? -22 : -16],
   })
 }
 
 const icons: Record<string, L.DivIcon> = {
-  buscado: createIcon('#dc2626', '🔴'),
-  encontrado: createIcon('#16a34a', '✅'),
-  fallecido: createIcon('#6b7280', '⚫'),
-  'posible-avistamiento': createIcon('#eab308', '⚠️'),
+  buscado: createIcon('#dc2626', '', true),
+  encontrado: createIcon('#16a34a', ''),
+  fallecido: createIcon('#6b7280', ''),
+  'posible-avistamiento': createIcon('#eab308', ''),
 }
 
-const defaultIcon = createIcon('#dc2626', '🔴')
+const defaultIcon = createIcon('#dc2626', '', true)
 
 // ── Severity colors for zones ──
 const severityColors: Record<string, { border: string; fill: string }> = {
@@ -67,8 +73,6 @@ interface MapProps {
   personas: PersonaMarker[]
   zonas?: ZonaAfectada[]
   onSelectPersona?: (id: string) => void
-  onAddLocation?: (lat: number, lng: number) => void
-  addingLocation?: boolean
   className?: string
 }
 
@@ -76,8 +80,6 @@ export default function Map({
   personas,
   zonas = [],
   onSelectPersona,
-  onAddLocation,
-  addingLocation = false,
   className,
 }: MapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
@@ -96,11 +98,14 @@ export default function Map({
     if (!mounted || !mapRef.current || mapInstanceRef.current) return
 
     const map = L.map(mapRef.current, {
-      center: [9.5, -66.5],
+      center: [10.0, -67.0],
       zoom: 7,
-      zoomControl: true,
+      zoomControl: false,
     })
     mapInstanceRef.current = map
+
+    // Zoom control on the right
+    L.control.zoom({ position: 'topright' }).addTo(map)
 
     // Tile layer — CartoDB Positron (clean, professional)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
@@ -110,13 +115,6 @@ export default function Map({
 
     // Add layer group
     layersRef.current.addTo(map)
-
-    // Click handler for adding locations
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      if (addingLocation && onAddLocation) {
-        onAddLocation(e.latlng.lat, e.latlng.lng)
-      }
-    })
 
     // Mouse move for coordinates display
     map.on('mousemove', (e: L.LeafletMouseEvent) => {
@@ -201,21 +199,6 @@ export default function Map({
       marker.bindPopup(popup, { maxWidth: 300 })
       marker.on('click', () => onSelectPersona?.(p.id))
 
-      // Pulsing animation for "buscado" markers
-      if (p.estado === 'buscado') {
-        const pulseIcon = L.divIcon({
-          html: `<div style="position:relative">
-            <div style="background:#dc2626;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35)"></div>
-            <div style="position:absolute;top:-6px;left:-6px;width:40px;height:40px;border-radius:50%;border:2px solid #dc2626;animation:pulse-ring 2s ease-out infinite;opacity:0.6"></div>
-          </div>`,
-          className: '',
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
-          popupAnchor: [0, -22],
-        })
-        marker.setIcon(pulseIcon)
-      }
-
       layersRef.current.addLayer(marker)
     })
 
@@ -248,50 +231,45 @@ export default function Map({
 
       {/* Coordinates display */}
       {cursorLat !== null && (
-        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded z-[1000] pointer-events-none">
+        <div className="absolute bottom-3 left-3 bg-black/70 text-white text-xs px-2 py-1 rounded z-[400] pointer-events-none">
           📍 {cursorLat.toFixed(4)}, {cursorLng?.toFixed(4)}
         </div>
       )}
 
-      {/* Adding location mode indicator */}
-      {addingLocation && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-bold text-sm px-4 py-2 rounded-full z-[1000] shadow-lg animate-bounce">
-          📍 Haz clic en el mapa para marcar la ubicación
-        </div>
-      )}
-
-      {/* Legend */}
-      <div className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm rounded-lg p-2 z-[1000] shadow-sm border border-gray-200">
-        <div className="text-[10px] font-semibold text-gray-600 mb-1">LEYENDA</div>
-        <div className="space-y-1 text-[10px]">
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-red-600 inline-block"></span>
+      {/* Legend — above zoom control, not overlapping */}
+      <div className="absolute top-14 right-3 bg-white/95 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 z-[400] overflow-hidden">
+        <div className="text-[10px] font-bold text-gray-500 px-3 py-1.5 bg-gray-50 border-b border-gray-100 uppercase tracking-wide">Leyenda</div>
+        <div className="px-3 py-2 space-y-1.5 text-[11px]">
+          <div className="flex items-center gap-2">
+            <span className="w-3.5 h-3.5 rounded-full bg-red-600 inline-block shrink-0"></span>
             <span>Buscado</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block"></span>
+          <div className="flex items-center gap-2">
+            <span className="w-3.5 h-3.5 rounded-full bg-yellow-500 inline-block shrink-0"></span>
             <span>Posible avistamiento</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-green-600 inline-block"></span>
+          <div className="flex items-center gap-2">
+            <span className="w-3.5 h-3.5 rounded-full bg-green-600 inline-block shrink-0"></span>
             <span>Encontrado</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-gray-500 inline-block"></span>
+          <div className="flex items-center gap-2">
+            <span className="w-3.5 h-3.5 rounded-full bg-gray-500 inline-block shrink-0"></span>
             <span>Fallecido</span>
           </div>
-          <hr className="border-gray-200 my-1" />
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full border-2 border-red-600 bg-red-600/20 inline-block"></span>
-            <span>Zona crítica</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full border-2 border-orange-500 bg-orange-500/15 inline-block"></span>
-            <span>Zona alta</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full border-2 border-yellow-500 bg-yellow-500/10 inline-block"></span>
-            <span>Zona media</span>
+          <div className="border-t border-gray-100 pt-1.5 mt-1.5">
+            <div className="text-[10px] text-gray-400 mb-1">Zonas afectadas</div>
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded-full border-2 border-red-600 bg-red-600/20 inline-block shrink-0"></span>
+              <span>Crítica</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded-full border-2 border-orange-500 bg-orange-500/15 inline-block shrink-0"></span>
+              <span>Alta</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3.5 h-3.5 rounded-full border-2 border-yellow-500 bg-yellow-500/10 inline-block shrink-0"></span>
+              <span>Media</span>
+            </div>
           </div>
         </div>
       </div>

@@ -44,6 +44,7 @@ export default function SearchBar({ onSearch, initialQuery = '', initialEstado =
         <option value="buscado">🔴 Aún buscados</option>
         <option value="encontrado">🟢 Encontrados</option>
         <option value="fallecido">⚫ Fallecidos</option>
+        <option value="posible-avistamiento">⚠️ Posible avistamiento</option>
       </select>
       <button onClick={handleSearch} className="btn-primary whitespace-nowrap">
         Buscar
