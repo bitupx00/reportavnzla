@@ -9,13 +9,13 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   try {
     const [buscados, encontrados, fallecidos, total] = await Promise.all([
-      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+      db().select({ count: sql<number>`count(*)::int` }).from(personas)
         .where(sql`${personas.estado} = 'buscado'`),
-      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+      db().select({ count: sql<number>`count(*)::int` }).from(personas)
         .where(sql`${personas.estado} = 'encontrado'`),
-      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+      db().select({ count: sql<number>`count(*)::int` }).from(personas)
         .where(sql`${personas.estado} = 'fallecido'`),
-      db.select({ count: sql<number>`count(*)::int` }).from(personas),
+      db().select({ count: sql<number>`count(*)::int` }).from(personas),
     ])
 
     return NextResponse.json({

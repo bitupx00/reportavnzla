@@ -8,13 +8,13 @@ export const dynamic = 'force-dynamic'
 async function getInitialStats() {
   try {
     const [buscados, encontrados, fallecidos, total] = await Promise.all([
-      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+      db().select({ count: sql<number>`count(*)::int` }).from(personas)
         .where(sql`${personas.estado} = 'buscado'`),
-      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+      db().select({ count: sql<number>`count(*)::int` }).from(personas)
         .where(sql`${personas.estado} = 'encontrado'`),
-      db.select({ count: sql<number>`count(*)::int` }).from(personas)
+      db().select({ count: sql<number>`count(*)::int` }).from(personas)
         .where(sql`${personas.estado} = 'fallecido'`),
-      db.select({ count: sql<number>`count(*)::int` }).from(personas),
+      db().select({ count: sql<number>`count(*)::int` }).from(personas),
     ])
     return {
       total: total[0]?.count || 0,
@@ -29,7 +29,7 @@ async function getInitialStats() {
 
 async function getInitialPersonas() {
   try {
-    const rows = await db
+    const rows = await db()
       .select()
       .from(personas)
       .orderBy(desc(personas.createdAt))
@@ -47,7 +47,7 @@ async function getInitialPersonas() {
 
 async function getZonasAfectadas() {
   try {
-    const rows = await db.select().from(zonasAfectadas)
+    const rows = await db().select().from(zonasAfectadas)
     return rows.map(z => ({
       id: z.id,
       nombre: z.nombre,

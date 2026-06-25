@@ -1,27 +1,24 @@
 import { neon } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-http'
+import { drizzle, type NeonHttpDatabase } from 'drizzle-orm/neon-http'
 import * as schema from './schema'
 
-type DbInstance = ReturnType<typeof drizzle<typeof schema>>
+type Db = NeonHttpDatabase<typeof schema>
 
-let _db: DbInstance | null = null
+let _db: Db | null = null
 
-function createDb(): DbInstance {
-  const databaseUrl = process.env.DATABASE_URL
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL no configurada')
+function getDb(): Db {
+  if (!_db) {
+    const url = process.env.DATABASE_URL
+    if (!url) throw new Error('DATABASE_URL no configurada')
+    _db = drizzle(neon(url), { schema })
   }
-  return drizzle(neon(databaseUrl), { schema })
+  return _db
 }
 
-// Lazy proxy — avoids calling neon() at module import time
-export const db = new Proxy({} as DbInstance, {
-  get(_target, prop, receiver) {
-    if (!_db) _db = createDb()
-    const value = Reflect.get(_db, prop, receiver)
-    if (typeof value === 'function') {
-      return value.bind(_db)
-    }
-    return value
-  },
-})
+// Export a simple getter instead of a Proxy — more reliable for method chaining
+export function db() {
+  return getDb()
+}
+
+// Re-export for convenience in route files that already import `db` as a value
+export { getDb as dbInstance }

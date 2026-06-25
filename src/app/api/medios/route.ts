@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       addRandomSuffix: true,
     })
 
-    const [result] = await db.insert(medios).values({
+    const [result] = await db().insert(medios).values({
       personaId,
       tipo: tipo as 'foto' | 'video',
       url: blob.url,

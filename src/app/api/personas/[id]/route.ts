@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const [result] = await db
+    const [result] = await db()
       .select()
       .from(personas)
       .where(eq(personas.id, params.id))

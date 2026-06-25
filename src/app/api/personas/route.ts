@@ -32,12 +32,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const [data, countResult] = await Promise.all([
-      db.select().from(personas)
+      db().select().from(personas)
         .where(where)
         .orderBy(desc(personas.createdAt))
         .limit(limit)
         .offset(offset),
-      db.select({ count: sql<number>`count(*)::int` })
+      db().select({ count: sql<number>`count(*)::int` })
         .from(personas)
         .where(where),
     ])
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       reportadoPorEmail: body.reportadoPorEmail || null,
     }
 
-    const [result] = await db.insert(personas).values(record).returning()
+    const [result] = await db().insert(personas).values(record).returning()
 
     return NextResponse.json(result, { status: 201 })
   } catch (error: any) {
@@ -103,7 +103,7 @@ export async function PATCH(request: NextRequest) {
     }
     updates.updatedAt = new Date().toISOString()
 
-    const [result] = await db
+    const [result] = await db()
       .update(personas)
       .set(updates)
       .where(eq(personas.id, id))
