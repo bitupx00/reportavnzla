@@ -262,14 +262,18 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     <SocialSidebar open={socialOpen} setOpen={setSocialOpen} />
     <main className={`min-h-screen transition-[padding] duration-300 ${socialOpen ? 'lg:pl-[340px]' : ''}`}>
       {/* ═══ EMERGENCY BANNER ═══ */}
-      <div className="emergency-banner bg-red-600 text-white text-center py-2 px-4 text-sm font-semibold">
+      <div className="emergency-banner bg-gradient-to-r from-red-600 via-red-600 to-red-500 text-white text-center py-2 px-4 text-sm font-semibold shadow-sm">
         🆘 EMERGENCIA — Terremoto Venezuela 2026 — Plataforma solidaria para buscar personas afectadas
       </div>
 
       {/* ═══ HEADER ═══ */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
+      <header className="header-glass sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+            title="Refrescar página"
+          >
             <img
               src="/logo.png"
               alt="ReportaVNZLA"
@@ -277,11 +281,11 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               height={44}
               className="h-11 w-11"
             />
-            <div>
+            <div className="text-left">
               <h1 className="text-xl font-bold text-gray-900">ReportaVNZLA</h1>
               <p className="text-xs text-gray-500">Venezuela Te Encuentra — Sin fines de lucro</p>
             </div>
-          </div>
+          </button>
           <div className="flex items-center gap-2">
             <a
               href="/desarrolladores"
@@ -307,8 +311,11 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         <PersonasSlider personas={personasVisibles} onSelect={handleSelectPersona} />
 
         {/* ═══ HERO / NON-PROFIT STATEMENT ═══ */}
-        <section className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 rounded-2xl p-6 sm:p-8">
-          <div className="text-center max-w-2xl mx-auto">
+        <section className="relative overflow-hidden bg-gradient-to-br from-red-50/80 via-amber-50/40 to-blue-50/30 border border-white/60 rounded-3xl p-8 sm:p-10 shadow-sm">
+          {/* Decorative curve */}
+          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-yellow-200/20 blur-2xl" />
+          <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-blue-200/15 blur-2xl" />
+          <div className="text-center max-w-2xl mx-auto relative">
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
               Cada nombre aquí es una familia esperando.
             </h2>
@@ -408,7 +415,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         </section>
 
         {/* ═══ DATA SOURCES + EXTERNAL LINKS ═══ */}
-        <section className="bg-blue-50 border border-blue-100 rounded-2xl p-6">
+        <section className="relative overflow-hidden bg-gradient-to-br from-blue-50/70 via-white to-amber-50/30 border border-white/60 rounded-3xl p-6 shadow-sm">
           <h3 className="font-semibold text-blue-800 mb-2">🔄 Fuentes de datos y recursos</h3>
           <p className="text-sm text-blue-600 mb-4">
             Esta plataforma sincroniza datos de múltiples fuentes públicas. Si representas un centro de datos
@@ -416,7 +423,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <a href="https://desaparecidosterremotovenezuela.com" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              className="flex items-center gap-2 text-sm bg-white/70 rounded-xl px-4 py-3 border border-white hover:border-blue-200 hover:shadow-sm transition-all">
               <span className="text-lg">🌐</span>
               <div>
                 <div className="font-medium text-gray-800">Desaparecidos Terremoto VE</div>
@@ -425,7 +432,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <span className="ml-auto text-blue-400">↗</span>
             </a>
             <a href="/desarrolladores"
-              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              className="flex items-center gap-2 text-sm bg-white rounded-xl px-4 py-3 border border-white hover:border-blue-300 hover:shadow-sm transition-all">
               <span className="text-lg">🔧</span>
               <div>
                 <div className="font-medium text-gray-800">API para Desarrolladores</div>
@@ -434,7 +441,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <span className="ml-auto text-blue-400">→</span>
             </a>
             <a href="https://venezuelatebusca.com" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              className="flex items-center gap-2 text-sm bg-white rounded-xl px-4 py-3 border border-white hover:border-blue-300 hover:shadow-sm transition-all">
               <span className="text-lg">🔍</span>
               <div>
                 <div className="font-medium text-gray-800">Venezuela Te Busca</div>
@@ -443,7 +450,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <span className="ml-auto text-blue-400">↗</span>
             </a>
             <a href="https://github.com/bitupx00/reportavnzla" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              className="flex items-center gap-2 text-sm bg-white rounded-xl px-4 py-3 border border-white hover:border-blue-300 hover:shadow-sm transition-all">
               <span className="text-lg">💻</span>
               <div>
                 <div className="font-medium text-gray-800">Código en GitHub</div>
@@ -452,7 +459,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <span className="ml-auto text-blue-400">↗</span>
             </a>
             <a href="https://www.protencioncivil.gob.ve" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              className="flex items-center gap-2 text-sm bg-white rounded-xl px-4 py-3 border border-white hover:border-blue-300 hover:shadow-sm transition-all">
               <span className="text-lg">🛡️</span>
               <div>
                 <div className="font-medium text-gray-800">Protección Civil Venezuela</div>
@@ -461,7 +468,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <span className="ml-auto text-blue-400">↗</span>
             </a>
             <a href="https://funvisis.gob.ve" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm bg-white rounded-lg px-4 py-3 border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
+              className="flex items-center gap-2 text-sm bg-white rounded-xl px-4 py-3 border border-white hover:border-blue-300 hover:shadow-sm transition-all">
               <span className="text-lg">🌐</span>
               <div>
                 <div className="font-medium text-gray-800">FUNVISIS</div>
@@ -475,8 +482,10 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       </div>
 
       {/* ═══ FOOTER ═══ */}
-      <footer className="bg-gray-900 text-gray-400 mt-12">
-        <div className="max-w-7xl mx-auto px-4 py-8">
+      <footer className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-gray-400 mt-12">
+        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-yellow-500/5 blur-3xl" />
+        <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-blue-500/5 blur-3xl" />
+        <div className="max-w-7xl mx-auto px-4 py-8 relative">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h4 className="text-white font-semibold mb-3">🇻🇪 ReportaVNZLA</h4>

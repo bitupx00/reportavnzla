@@ -50,7 +50,7 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
+      <body className="min-h-screen text-gray-900 antialiased bg-venezuela">
         {children}
       </body>
     </html>
