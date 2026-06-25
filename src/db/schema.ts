@@ -34,6 +34,22 @@ export const personas = pgTable('personas', {
   index('personas_estado_idx').on(table.estado),
 ])
 
+// ── Registro de sincronizaciones ─────────────────────────────
+export const syncLog = pgTable('sync_log', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  source: varchar('source', { length: 50 }).notNull(),
+  status: varchar('status', { length: 20 }).notNull(),
+  totalFetched: integer('total_fetched').default(0),
+  newInserted: integer('new_inserted').default(0),
+  statusChanged: integer('status_changed').default(0),
+  updated: integer('updated').default(0),
+  errors: integer('errors').default(0),
+  durationMs: integer('duration_ms'),
+  details: text('details'),
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+})
+
 // ── Avisos / testimonios sobre una persona ───────────────────
 export const avisos = pgTable('avisos', {
   id: uuid('id').defaultRandom().primaryKey(),
