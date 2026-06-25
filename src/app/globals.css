@@ -31,15 +31,32 @@ body {
 .map-container {
   width: 100%;
   height: 500px;
-  border-radius: 0.75rem;
+  border-radius: 16px;
   overflow: hidden;
+  border: 1px solid #e5e7eb;
   z-index: 1;
 }
 
-@media (max-width: 768px) {
+@media (min-width: 640px) {
   .map-container {
-    height: 350px;
+    height: 600px;
   }
+}
+
+/* Pulse animation for "buscado" markers */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Leaflet popup custom style */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px !important;
 }
 
 /* Person cards */

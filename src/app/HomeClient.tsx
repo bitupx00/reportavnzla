@@ -65,7 +65,11 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
   const [totalPages, setTotalPages] = useState(1)
   const [currentPage, setCurrentPage] = useState(0)
   const [searchParams, setSearchParams] = useState({ q: '', estado: '' })
+  const [addingLocation, setAddingLocation] = useState(false)
+  const [pickedLat, setPickedLat] = useState<number | null>(null)
+  const [pickedLng, setPickedLng] = useState<number | null>(null)
 
+  // ── Fetch personas on mount (not just initial) ──
   const fetchPersonas = useCallback(async (q = '', estado = '', page = 0) => {
     setLoading(true)
     try {
@@ -84,13 +88,18 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       // Also fetch updated stats
       const statsRes = await fetch('/api/stats')
       const statsData = await statsRes.json()
-      setStats(statsData)
+      if (statsData.total !== undefined) setStats(statsData)
     } catch (err) {
       console.error('Error fetching:', err)
     } finally {
       setLoading(false)
     }
   }, [])
+
+  // Load data on first render
+  useEffect(() => {
+    fetchPersonas()
+  }, [fetchPersonas])
 
   const handleSearch = useCallback((params: { q: string; estado: string }) => {
     setSearchParams(params)
@@ -115,13 +124,20 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     })
     if (!res.ok) throw new Error('Error al actualizar')
     await fetchPersonas(searchParams.q, searchParams.estado, currentPage)
+    setSelectedPersona(null)
   }, [fetchPersonas, searchParams, currentPage])
+
+  const handleMapClick = useCallback((lat: number, lng: number) => {
+    setPickedLat(lat)
+    setPickedLng(lng)
+    setAddingLocation(false)
+    setShowAddModal(true)
+  }, [])
 
   const handleAddPerson = useCallback(async (formData: FormData) => {
     const foto = formData.get('foto') as File | null
     let fotoUrl: string | null = null
 
-    // Upload photo if present
     if (foto && foto.size > 0) {
       const mediaForm = new FormData()
       mediaForm.append('personaId', 'temp')
@@ -135,8 +151,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       }
     }
 
-    // Create person record
-    const body = {
+    const body: any = {
       nombre: formData.get('nombre'),
       apellido: formData.get('apellido'),
       cedula: formData.get('cedula') || null,
@@ -151,6 +166,15 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       reportadoPorEmail: formData.get('reportadoPorEmail') || null,
     }
 
+    // Use picked coordinates from map if available
+    if (pickedLat !== null && pickedLng !== null) {
+      body.lat = pickedLat
+      body.lng = pickedLng
+    } else if (formData.get('lat')) {
+      body.lat = parseFloat(formData.get('lat') as string)
+      body.lng = parseFloat(formData.get('lng') as string)
+    }
+
     const res = await fetch('/api/personas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -161,8 +185,10 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       throw new Error(error.error || 'Error al publicar')
     }
 
+    setPickedLat(null)
+    setPickedLng(null)
     await fetchPersonas(searchParams.q, searchParams.estado, 0)
-  }, [fetchPersonas, searchParams])
+  }, [fetchPersonas, searchParams, pickedLat, pickedLng])
 
   // Map markers: only persons with coordinates
   const mapMarkers = personas
@@ -172,10 +198,14 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       nombre: p.nombre,
       apellido: p.apellido,
       cedula: p.cedula,
+      edad: p.edad,
       estado: p.estado,
       lat: p.lat!,
       lng: p.lng!,
       ultimaUbicacion: p.ultimaUbicacion,
+      descripcion: p.descripcion,
+      fotoUrl: p.fotoUrl,
+      createdAt: p.createdAt,
     }))
 
   return (
@@ -195,12 +225,20 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <p className="text-xs text-gray-500">Venezuela Te Encuentra — Sin fines de lucro</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary text-sm sm:text-base"
-          >
-            📢 + Registrar persona
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setAddingLocation(!addingLocation)}
+              className={`text-sm px-3 py-2 rounded-lg border transition-all ${addingLocation ? 'bg-yellow-500 border-yellow-600 text-black font-bold' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+            >
+              📍 {addingLocation ? 'Seleccionando...' : 'Marcar en mapa'}
+            </button>
+            <button
+              onClick={() => { setPickedLat(null); setPickedLng(null); setShowAddModal(true) }}
+              className="btn-primary text-sm sm:text-base"
+            >
+              📢 + Registrar persona
+            </button>
+          </div>
         </div>
       </header>
 
@@ -212,8 +250,8 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               Cada nombre aquí es una familia esperando.
             </h2>
             <p className="text-gray-600 text-sm sm:text-base leading-relaxed mb-4">
-              <strong>ReportaVNZLA</strong> es una plataforma <strong>gratuita y sin fines de lucro</strong> que centraliza 
-              el registro de personas perdidas, rescatadas y fallecidas tras el terremoto. 
+              <strong>ReportaVNZLA</strong> es una plataforma <strong>gratuita y sin fines de lucro</strong> que centraliza
+              el registro de personas perdidas, rescatadas y fallecidas tras el terremoto.
               Los datos son públicos y accesibles para facilitar labores de rescate y reencuentro familiar.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-500">
@@ -230,18 +268,20 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         {/* ═══ MAP ═══ */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-800">🗺️ Mapa de personas y zonas afectadas</h3>
-            <div className="flex items-center gap-3 text-xs text-gray-500">
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span> Buscado</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 inline-block"></span> Encontrado</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-400 inline-block"></span> Fallecido</span>
-            </div>
+            <h3 className="font-semibold text-gray-800">🗺️ Mapa interactivo — Zonas afectadas y ubicaciones</h3>
           </div>
           <Map
             personas={mapMarkers}
             zonas={zonas}
             onSelectPersona={handleSelectPersona}
+            onAddLocation={handleMapClick}
+            addingLocation={addingLocation}
           />
+          {pickedLat !== null && (
+            <div className="mt-2 text-sm text-yellow-700 bg-yellow-50 rounded-lg px-3 py-2 border border-yellow-200">
+              📍 Ubicación seleccionada: {pickedLat.toFixed(4)}, {pickedLng?.toFixed(4)} — Se usará al registrar una persona
+            </div>
+          )}
         </section>
 
         {/* ═══ SEARCH + LIST ═══ */}
@@ -250,7 +290,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             <h3 className="font-semibold text-gray-800">
               📋 Listado de personas ({stats.total})
             </h3>
-            <button onClick={() => setShowAddModal(true)} className="text-sm text-red-600 hover:text-red-700 font-medium">
+            <button onClick={() => { setPickedLat(null); setPickedLng(null); setShowAddModal(true) }} className="text-sm text-red-600 hover:text-red-700 font-medium">
               + Registrar nueva persona
             </button>
           </div>
@@ -276,7 +316,6 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             <>
               <PersonCard personas={personas} onSelect={handleSelectPersona} />
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-4 mt-6">
                   <button
@@ -306,8 +345,8 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         <section className="bg-blue-50 border border-blue-100 rounded-2xl p-6">
           <h3 className="font-semibold text-blue-800 mb-2">🔄 Fuentes de datos</h3>
           <p className="text-sm text-blue-600">
-            Esta plataforma sincroniza datos de múltiples fuentes públicas: venezuelatebusca.com y otras plataformas 
-            de registro. Si representas un centro de datos u ONG y deseas integrar tu información, 
+            Esta plataforma sincroniza datos de múltiples fuentes públicas: venezuelatebusca.com y otras plataformas
+            de registro. Si representas un centro de datos u ONG y deseas integrar tu información,
             contáctanos. Los datos se actualizan automáticamente.
           </p>
           <div className="flex flex-wrap gap-2 mt-3">
@@ -323,37 +362,30 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       <footer className="bg-gray-900 text-gray-400 mt-12">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* About */}
             <div>
               <h4 className="text-white font-semibold mb-3">🇻🇪 ReportaVNZLA</h4>
               <p className="text-sm leading-relaxed">
-                Iniciativa solidaria, gratuita y sin fines de lucro. 
+                Iniciativa solidaria, gratuita y sin fines de lucro.
                 Nuestro único objetivo es ayudar a reunir familias.
               </p>
             </div>
-
-            {/* Emergency */}
             <div>
               <h4 className="text-white font-semibold mb-3">📞 Emergencias</h4>
               <ul className="text-sm space-y-1">
-                <li>**911** (Movistar)</li>
-                <li>**112** (Digitel)</li>
-                <li>**\*1** (Movilnet)</li>
-                <li>**171** (Cantv fijo)</li>
+                <li>171 — Emergencias nacionales</li>
+                <li>911 — Policía / Bomberos</li>
+                <li>*1 — Protección Civil</li>
               </ul>
             </div>
-
-            {/* Legal */}
             <div>
               <h4 className="text-white font-semibold mb-3">⚖️ Legal</h4>
               <p className="text-sm leading-relaxed">
-                Los datos publicados son responsabilidad exclusiva de quien los envía. 
-                Esta plataforma no verifica la información ni se hace responsable 
+                Los datos publicados son responsabilidad exclusiva de quien los envía.
+                Esta plataforma no verifica la información ni se hace responsable
                 por el uso que terceros hagan de ella.
               </p>
             </div>
           </div>
-
           <div className="border-t border-gray-800 mt-6 pt-6 text-center text-xs text-gray-500">
             <p>ReportaVNZLA · Iniciativa solidaria · Sin fines de lucro · Terremoto Venezuela 2026</p>
             <p className="mt-1">Datos abiertos para la comunidad · Código abierto en GitHub</p>
@@ -364,8 +396,10 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       {/* ═══ MODALS ═══ */}
       <AddPersonModal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => { setShowAddModal(false); setPickedLat(null); setPickedLng(null) }}
         onSubmit={handleAddPerson}
+        prefillLat={pickedLat}
+        prefillLng={pickedLng}
       />
 
       <PersonDetail

@@ -6,9 +6,11 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   onSubmit: (data: FormData) => Promise<void>
+  prefillLat?: number | null
+  prefillLng?: number | null
 }
 
-export default function AddPersonModal({ isOpen, onClose, onSubmit }: Props) {
+export default function AddPersonModal({ isOpen, onClose, onSubmit, prefillLat, prefillLng }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fotoPreview, setFotoPreview] = useState<string | null>(null)
@@ -138,22 +140,39 @@ export default function AddPersonModal({ isOpen, onClose, onSubmit }: Props) {
           {/* Datos del reportante */}
           <fieldset className="border border-gray-200 rounded-xl p-4 space-y-4">
             <legend className="text-sm font-semibold text-gray-700 px-2">Tus datos (quien reporta)</legend>
-            
+
+            <div className="flex items-center gap-2 mb-2">
+              <input type="checkbox" id="anonimo" onChange={(e) => {
+                const inputs = formRef.current?.querySelectorAll('.reportante-field') as NodeListOf<HTMLInputElement>
+                inputs?.forEach(inp => { inp.required = !e.target.checked; inp.value = e.target.checked ? '' : inp.value })
+              }} />
+              <label htmlFor="anonimo" className="text-sm text-gray-600">Reportar de forma anónima</label>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tu nombre *</label>
-                <input name="reportadoPorNombre" required maxLength={150} className="search-input" placeholder="Tu nombre completo" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tu nombre</label>
+                <input name="reportadoPorNombre" maxLength={150} className="search-input reportante-field" placeholder="Tu nombre completo (o anónimo)" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                <input name="reportadoPorTelefono" maxLength={30} className="search-input" placeholder="+58 412 1234567" />
+                <input name="reportadoPorTelefono" maxLength={30} className="search-input reportante-field" placeholder="+58 412 1234567" />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input name="reportadoPorEmail" type="email" maxLength={150} className="search-input" placeholder="tu@email.com" />
+              <input name="reportadoPorEmail" type="email" maxLength={150} className="search-input reportante-field" placeholder="tu@email.com" />
             </div>
           </fieldset>
+
+          {/* Hidden coordinates from map pick */}
+          <input type="hidden" name="lat" value={prefillLat || ''} />
+          <input type="hidden" name="lng" value={prefillLng || ''} />
+          {prefillLat && prefillLng && (
+            <div className="text-sm text-yellow-700 bg-yellow-50 rounded-lg px-3 py-2 border border-yellow-200">
+              📍 Ubicación marcada en el mapa: {prefillLat.toFixed(4)}, {prefillLng.toFixed(4)}
+            </div>
+          )}
 
           <button type="submit" disabled={loading} className="btn-primary w-full text-center">
             {loading ? '⏳ Publicando...' : '📢 Publicar registro'}
