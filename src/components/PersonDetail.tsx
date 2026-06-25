@@ -1,7 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { formatDate, formatCedula, statusColor, fixPhotoUrl, AVATAR_FALLBACK } from '@/lib/utils'
+
+interface Familiar {
+  id: string
+  nombre: string
+  telefono: string | null
+  email: string | null
+  mensaje: string | null
+  createdAt: string
+}
 
 interface Persona {
   id: string
@@ -37,8 +46,80 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
   const [notasEncontrado, setNotasEncontrado] = useState('')
   const [showFoundForm, setShowFoundForm] = useState(false)
   const [zoom, setZoom] = useState(false)
+  const [avisos, setAvisos] = useState<Familiar[]>([])
+  const [showFamForm, setShowFamForm] = useState(false)
+  const [famForm, setFamForm] = useState({ nombre: '', telefono: '', email: '' })
+  const [savingFam, setSavingFam] = useState(false)
+  const [localFoto, setLocalFoto] = useState<string | null>(null)
+  const [uploadingFoto, setUploadingFoto] = useState(false)
+
+  const pid = persona?.id
+  useEffect(() => {
+    setLocalFoto(null)
+    if (!pid) {
+      setAvisos([])
+      return
+    }
+    fetch(`/api/avisos?personaId=${pid}`)
+      .then((r) => r.json())
+      .then((d) => setAvisos(d.data || []))
+      .catch(() => setAvisos([]))
+  }, [pid])
 
   if (!isOpen || !persona) return null
+
+  const reloadAvisos = () =>
+    fetch(`/api/avisos?personaId=${persona.id}`)
+      .then((r) => r.json())
+      .then((d) => setAvisos(d.data || []))
+      .catch(() => {})
+
+  const handleAddFamiliar = async () => {
+    if (!famForm.nombre.trim()) return
+    setSavingFam(true)
+    try {
+      await fetch('/api/avisos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personaId: persona.id, ...famForm }),
+      })
+      setFamForm({ nombre: '', telefono: '', email: '' })
+      setShowFamForm(false)
+      reloadAvisos()
+    } catch {
+      alert('No se pudo guardar el contacto')
+    } finally {
+      setSavingFam(false)
+    }
+  }
+
+  const handleAddFoto = async (file: File) => {
+    setUploadingFoto(true)
+    try {
+      const fd = new FormData()
+      fd.append('personaId', persona.id)
+      fd.append('tipo', 'foto')
+      fd.append('file', file)
+      const r = await fetch('/api/medios', { method: 'POST', body: fd })
+      const d = await r.json()
+      if (d.url) {
+        await fetch('/api/personas', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: persona.id, fotoUrl: d.url }),
+        })
+        setLocalFoto(d.url)
+      } else {
+        alert('No se pudo subir la foto')
+      }
+    } catch {
+      alert('No se pudo subir la foto')
+    } finally {
+      setUploadingFoto(false)
+    }
+  }
+
+  const fotoActual = fixPhotoUrl(localFoto || persona.fotoUrl)
 
   const handleMarkFound = async () => {
     if (!notasEncontrado.trim()) return
@@ -71,11 +152,11 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
 
         <div className="p-6 space-y-5">
           {/* Photo (click para ampliar) */}
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-2">
             <div className="w-[200px] max-w-full aspect-[250/351] rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border-4 border-gray-200">
-              {fixPhotoUrl(persona.fotoUrl) ? (
+              {fotoActual ? (
                 <img
-                  src={fixPhotoUrl(persona.fotoUrl)!}
+                  src={fotoActual}
                   alt={`Foto de ${persona.nombre} ${persona.apellido}`}
                   className="w-full h-full object-cover cursor-zoom-in"
                   title="Click para ampliar"
@@ -89,16 +170,32 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
                 <span className="text-5xl">👤</span>
               )}
             </div>
+            {/* Añadir foto si no tiene */}
+            {!fotoActual && (
+              <label className="cursor-pointer rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-red-300 hover:text-red-600">
+                {uploadingFoto ? 'Subiendo…' : '📷 Añadir foto'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingFoto}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) handleAddFoto(f)
+                  }}
+                />
+              </label>
+            )}
           </div>
 
           {/* Lightbox / zoom de la foto */}
-          {zoom && fixPhotoUrl(persona.fotoUrl) && (
+          {zoom && fotoActual && (
             <div
               className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
               onClick={() => setZoom(false)}
             >
               <img
-                src={fixPhotoUrl(persona.fotoUrl)!}
+                src={fotoActual}
                 alt={`Foto de ${persona.nombre} ${persona.apellido}`}
                 className="max-h-[92vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
                 onError={(e) => {
@@ -185,6 +282,71 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
               </div>
             </div>
           )}
+
+          {/* Familiares / contactos */}
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-semibold text-blue-800">👨‍👩‍👧 Familiares y contactos</h4>
+              <button
+                onClick={() => setShowFamForm((s) => !s)}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800"
+              >
+                {showFamForm ? 'Cancelar' : '+ Añadir'}
+              </button>
+            </div>
+
+            {avisos.length > 0 ? (
+              <ul className="space-y-2 mb-2">
+                {avisos.map((a) => (
+                  <li key={a.id} className="rounded-lg bg-white border border-blue-100 px-3 py-2 text-sm">
+                    <div className="font-medium text-gray-800">{a.nombre}</div>
+                    {a.telefono && <div className="text-xs text-gray-600">📞 {a.telefono}</div>}
+                    {a.email && <div className="text-xs text-gray-600">✉️ {a.email}</div>}
+                    {a.mensaje && a.mensaje !== 'Familiar / contacto' && (
+                      <div className="text-xs text-gray-500 mt-0.5">{a.mensaje}</div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              !showFamForm && (
+                <p className="text-xs text-blue-500/80 mb-1">
+                  ¿Eres familiar? Añade tus datos de contacto para que puedan comunicarse contigo.
+                </p>
+              )
+            )}
+
+            {showFamForm && (
+              <div className="space-y-2">
+                <input
+                  value={famForm.nombre}
+                  onChange={(e) => setFamForm({ ...famForm, nombre: e.target.value })}
+                  placeholder="Nombre del familiar *"
+                  className="search-input"
+                />
+                <input
+                  value={famForm.telefono}
+                  onChange={(e) => setFamForm({ ...famForm, telefono: e.target.value })}
+                  placeholder="Teléfono de contacto"
+                  className="search-input"
+                />
+                <input
+                  type="email"
+                  value={famForm.email}
+                  onChange={(e) => setFamForm({ ...famForm, email: e.target.value })}
+                  placeholder="Correo de contacto"
+                  className="search-input"
+                />
+                <button
+                  onClick={handleAddFamiliar}
+                  disabled={savingFam || !famForm.nombre.trim()}
+                  className="btn-primary w-full text-center disabled:opacity-40"
+                >
+                  {savingFam ? 'Guardando…' : 'Guardar contacto'}
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Actions */}
           {persona.estado === 'buscado' && (

@@ -263,12 +263,23 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
               <p className="text-xs text-gray-500">Venezuela Te Encuentra — Sin fines de lucro</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary text-sm sm:text-base"
-          >
-            📢 + Registrar persona
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href="/desarrolladores"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-blue-300 hover:text-blue-700"
+              title="API pública para desarrolladores"
+            >
+              <span aria-hidden>{'</>'}</span>
+              <span className="hidden sm:inline">API Desarrolladores</span>
+              <span className="sm:hidden">API</span>
+            </a>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="btn-primary text-sm sm:text-base"
+            >
+              📢 + Registrar persona
+            </button>
+          </div>
         </div>
       </header>
 

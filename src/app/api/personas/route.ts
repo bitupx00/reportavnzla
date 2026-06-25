@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, estado, notas, fechaEncontrado } = body
+    const { id, estado, notas, fechaEncontrado, fotoUrl } = body
 
     if (!id) {
       return NextResponse.json({ error: 'id requerido' }, { status: 400 })
@@ -98,6 +98,7 @@ export async function PATCH(request: NextRequest) {
     const updates: any = {}
     if (estado) updates.estado = estado
     if (notas !== undefined) updates.notas = notas
+    if (fotoUrl !== undefined) updates.fotoUrl = fotoUrl
     if (fechaEncontrado || estado === 'encontrado') {
       updates.fechaEncontrado = fechaEncontrado || new Date().toISOString()
     }
