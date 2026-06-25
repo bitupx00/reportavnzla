@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sqlRaw } from '@/db'
+import { rateLimit, getIp } from '@/lib/ratelimit'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +48,8 @@ export async function POST(request: NextRequest) {
     if (!plataforma) {
       return NextResponse.json({ error: 'Solo se aceptan enlaces de X (con /status/), Instagram (post/reel) o Facebook' }, { status: 400 })
     }
+    const rl = await rateLimit(getIp(request))
+    if (!rl.ok) return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta en unos minutos.' }, { status: 429 })
     await ensureSchema()
     const sql = sqlRaw()
     const rows = (await sql`

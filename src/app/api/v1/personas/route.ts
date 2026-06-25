@@ -3,6 +3,7 @@ import { db } from '@/db'
 import { personas, fuentesDatos } from '@/db/schema'
 import { eq, ilike, or, and, sql, desc, asc } from 'drizzle-orm'
 import { motivoRechazo } from '@/lib/antispam'
+import { rateLimit, getIp } from '@/lib/ratelimit'
 
 export const dynamic = 'force-dynamic'
 
@@ -152,6 +153,12 @@ export async function POST(request: NextRequest) {
   try {
     let body = await request.json()
     const isBatch = Array.isArray(body)
+
+    // Rate-limit por IP
+    const rl = await rateLimit(getIp(request), 40)
+    if (!rl.ok) {
+      return NextResponse.json({ success: false, error: 'Rate limit: demasiadas solicitudes' }, { status: 429, headers: corsHeaders })
+    }
 
     // Anti-spam: bloquear fuente/enlaces inyectados
     const xsrc = request.headers.get('x-source')

@@ -152,6 +152,15 @@ export default function AddPersonModal({ isOpen, onClose, onSubmit }: Props) {
         </div>
 
         <form ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Honeypot anti-bots (oculto para humanos) */}
+          <input
+            type="text"
+            name="_hp"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            className="absolute left-[-9999px] h-0 w-0 opacity-0"
+          />
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
           )}

@@ -201,6 +201,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       reportadoPorNombre: formData.get('reportadoPorNombre') || null,
       reportadoPorTelefono: formData.get('reportadoPorTelefono') || null,
       reportadoPorEmail: formData.get('reportadoPorEmail') || null,
+      _hp: formData.get('_hp') || null,
     }
 
     // Coordinates from the address lookup in the form

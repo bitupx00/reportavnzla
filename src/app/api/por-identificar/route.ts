@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sqlRaw } from '@/db'
 import { motivoRechazo } from '@/lib/antispam'
+import { rateLimit, getIp } from '@/lib/ratelimit'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,6 +65,8 @@ export async function POST(request: NextRequest) {
     if (!fotoUrl) {
       return NextResponse.json({ error: 'fotoUrl requerido' }, { status: 400 })
     }
+    const rl = await rateLimit(getIp(request))
+    if (!rl.ok) return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta en unos minutos.' }, { status: 429 })
     const motivo = motivoRechazo({ nombre, apellido, descripcion, ultimaUbicacion, reportadoPorNombre: contactoNombre })
     if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
     await ensureSchema()

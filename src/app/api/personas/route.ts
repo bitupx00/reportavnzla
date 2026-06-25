@@ -3,6 +3,7 @@ import { db } from '@/db'
 import { personas } from '@/db/schema'
 import { eq, ilike, or, and, sql, desc } from 'drizzle-orm'
 import { motivoRechazo } from '@/lib/antispam'
+import { rateLimit, getIp } from '@/lib/ratelimit'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,6 +74,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+
+    // Honeypot: campo oculto que solo rellenan los bots
+    if (body._hp) return NextResponse.json({ ok: true }, { status: 200 })
+
+    const rl = await rateLimit(getIp(request))
+    if (!rl.ok) return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta de nuevo en unos minutos.' }, { status: 429 })
 
     const motivo = motivoRechazo({ ...body, source: request.headers.get('x-source') })
     if (motivo) return NextResponse.json({ error: motivo }, { status: 400 })
