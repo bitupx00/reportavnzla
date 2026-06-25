@@ -1,0 +1,120 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/db'
+import { personas } from '@/db/schema'
+import { eq, ilike, or, and, sql, desc } from 'drizzle-orm'
+
+export const dynamic = 'force-dynamic'
+
+// GET /api/personas?q=...&estado=...&page=0&limit=24
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const q = searchParams.get('q') || ''
+  const estado = searchParams.get('estado') || ''
+  const page = parseInt(searchParams.get('page') || '0')
+  const limit = Math.min(parseInt(searchParams.get('limit') || '24'), 100)
+  const offset = page * limit
+
+  const conditions = []
+  if (q) {
+    conditions.push(
+      or(
+        ilike(personas.nombre, `%${q}%`),
+        ilike(personas.apellido, `%${q}%`),
+        ilike(personas.cedula, `%${q}%`)
+      )
+    )
+  }
+  if (estado) {
+    conditions.push(eq(personas.estado, estado as any))
+  }
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined
+
+  try {
+    const [data, countResult] = await Promise.all([
+      db.select().from(personas)
+        .where(where)
+        .orderBy(desc(personas.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)::int` })
+        .from(personas)
+        .where(where),
+    ])
+
+    const totalCount = countResult[0]?.count || 0
+
+    return NextResponse.json({
+      data,
+      totalCount,
+      page,
+      totalPages: Math.ceil(totalCount / limit),
+    })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+// POST /api/personas
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+
+    const record = {
+      nombre: body.nombre,
+      apellido: body.apellido,
+      cedula: body.cedula || null,
+      edad: body.edad ? parseInt(body.edad) : null,
+      genero: body.genero || null,
+      ultimaUbicacion: body.ultimaUbicacion || null,
+      descripcion: body.descripcion || null,
+      fotoUrl: body.fotoUrl || null,
+      estado: body.estado || 'buscado',
+      lat: body.lat || null,
+      lng: body.lng || null,
+      reportadoPorNombre: body.reportadoPorNombre,
+      reportadoPorTelefono: body.reportadoPorTelefono || null,
+      reportadoPorEmail: body.reportadoPorEmail || null,
+    }
+
+    const [result] = await db.insert(personas).values(record).returning()
+
+    return NextResponse.json(result, { status: 201 })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+}
+
+// PATCH /api/personas
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { id, estado, notas, fechaEncontrado } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+    }
+
+    const updates: any = {}
+    if (estado) updates.estado = estado
+    if (notas !== undefined) updates.notas = notas
+    if (fechaEncontrado || estado === 'encontrado') {
+      updates.fechaEncontrado = fechaEncontrado || new Date().toISOString()
+    }
+    updates.updatedAt = new Date().toISOString()
+
+    const [result] = await db
+      .update(personas)
+      .set(updates)
+      .where(eq(personas.id, id))
+      .returning()
+
+    if (!result) {
+      return NextResponse.json({ error: 'Registro no encontrado' }, { status: 404 })
+    }
+
+    return NextResponse.json(result)
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+}

@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --emergency: #dc2626;
+  --emergency-dark: #991b1b;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Emergency pulse banner */
+@keyframes emergency-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.emergency-banner {
+  animation: emergency-pulse 2s ease-in-out infinite;
+}
+
+/* Map container */
+.map-container {
+  width: 100%;
+  height: 500px;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .map-container {
+    height: 350px;
+  }
+}
+
+/* Person cards */
+.persona-card {
+  @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer transition-all duration-200;
+}
+
+.persona-card:hover {
+  @apply shadow-md -translate-y-0.5;
+}
+
+.persona-card.status-buscado {
+  @apply border-l-4 border-l-red-500;
+}
+
+.persona-card.status-encontrado {
+  @apply border-l-4 border-l-green-500;
+}
+
+.persona-card.status-fallecido {
+  @apply border-l-4 border-l-gray-400;
+}
+
+/* Status badges */
+.badge-buscado {
+  @apply bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-red-200;
+}
+
+.badge-encontrado {
+  @apply bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-green-200;
+}
+
+.badge-fallecido {
+  @apply bg-gray-100 text-gray-600 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-gray-200;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+}
+
+.modal-overlay.is-hidden {
+  display: none;
+}
+
+.modal-content {
+  @apply bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto;
+}
+
+/* Stat cards */
+.stat-card {
+  @apply rounded-xl p-4 text-center border;
+}
+
+.stat-number {
+  @apply text-3xl font-bold tabular-nums;
+}
+
+/* Search bar */
+.search-input {
+  @apply w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:border-red-300 focus:ring-2 focus:ring-red-100 outline-none transition-all text-gray-800 placeholder-gray-400;
+}
+
+/* Buttons */
+.btn-primary {
+  @apply bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-sm hover:shadow-md active:scale-[0.98];
+}
+
+.btn-secondary {
+  @apply bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium px-4 py-2 rounded-xl transition-colors;
+}
+
+.btn-success {
+  @apply bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-sm;
+}
+
+/* Toast notifications */
+.toast {
+  @apply fixed bottom-4 right-4 px-6 py-3 rounded-xl shadow-lg text-white font-medium z-[100] transition-all transform translate-y-0;
+}
+
+.toast.success {
+  @apply bg-green-600;
+}
+
+.toast.error {
+  @apply bg-red-600;
+}
+
+/* Leaflet fix for modal z-index */
+.leaflet-container {
+  z-index: 1;
+}
+
+/* Loading skeleton */
+.skeleton {
+  @apply animate-pulse bg-gray-200 rounded;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}

@@ -1,0 +1,85 @@
+import { pgTable, uuid, varchar, integer, text, real, boolean, timestamp, pgEnum } from 'drizzle-orm/pg-core'
+
+export const estadoEnum = pgEnum('estado_persona', ['buscado', 'encontrado', 'fallecido'])
+export const medioTipoEnum = pgEnum('medio_tipo', ['foto', 'video'])
+export const severidadEnum = pgEnum('severidad_zona', ['critica', 'alta', 'media', 'baja'])
+export const fuenteTipoEnum = pgEnum('fuente_tipo', ['supabase', 'scraping', 'manual', 'ia', 'api'])
+
+// ── Personas registradas ────────────────────────────────────
+export const personas = pgTable('personas', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  nombre: varchar('nombre', { length: 100 }).notNull(),
+  apellido: varchar('apellido', { length: 100 }).notNull(),
+  cedula: varchar('cedula', { length: 20 }),
+  edad: integer('edad'),
+  genero: varchar('genero', { length: 20 }),
+  ultimaUbicacion: text('ultima_ubicacion'),
+  descripcion: text('descripcion'),
+  fotoUrl: text('foto_url'),
+  estado: estadoEnum('estado').default('buscado').notNull(),
+  lat: real('lat'),
+  lng: real('lng'),
+  fechaEncontrado: timestamp('fecha_encontrado', { withTimezone: true }),
+  notas: text('notas'),
+  reportadoPorNombre: varchar('reportado_por_nombre', { length: 150 }),
+  reportadoPorTelefono: varchar('reportado_por_telefono', { length: 30 }),
+  reportadoPorEmail: varchar('reportado_por_email', { length: 150 }),
+  fuenteId: uuid('fuente_id').references(() => fuentesDatos.id),
+  externalId: varchar('external_id', { length: 100 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  // Indexes for search performance
+  nombreIdx: 'personas_nombre_idx',
+  cedulaIdx: 'personas_cedula_idx',
+  estadoIdx: 'personas_estado_idx',
+  ubicacionIdx: 'personas_ubicacion_idx',
+}))
+
+// ── Avisos / testimonios sobre una persona ───────────────────
+export const avisos = pgTable('avisos', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  personaId: uuid('persona_id').references(() => personas.id, { onDelete: 'cascade' }).notNull(),
+  nombreAviso: varchar('nombre_aviso', { length: 150 }).notNull(),
+  telefonoAviso: varchar('telefono_aviso', { length: 30 }),
+  mensaje: text('mensaje').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// ── Fotos y videos adjuntos ─────────────────────────────────
+export const medios = pgTable('medios', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  personaId: uuid('persona_id').references(() => personas.id, { onDelete: 'cascade' }).notNull(),
+  tipo: medioTipoEnum('tipo').notNull(),
+  url: text('url').notNull(),
+  thumbnailUrl: text('thumbnail_url'),
+  descripcion: text('descripcion'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// ── Zonas afectadas ─────────────────────────────────────────
+export const zonasAfectadas = pgTable('zonas_afectadas', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  nombre: varchar('nombre', { length: 200 }).notNull(),
+  estado: varchar('estado', { length: 50 }).notNull(),
+  lat: real('lat').notNull(),
+  lng: real('lng').notNull(),
+  radioKm: integer('radio_km').default(10),
+  severidad: severidadEnum('severidad').default('media').notNull(),
+  descripcion: text('descripcion'),
+  fuenteId: uuid('fuente_id').references(() => fuentesDatos.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// ── Fuentes de datos externas ────────────────────────────────
+export const fuentesDatos = pgTable('fuentes_datos', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  nombre: varchar('nombre', { length: 150 }).notNull(),
+  url: text('url'),
+  tipo: fuenteTipoEnum('tipo').notNull(),
+  activa: boolean('activa').default(true).notNull(),
+  lastSync: timestamp('last_sync', { withTimezone: true }),
+  config: text('config'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})

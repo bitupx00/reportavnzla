@@ -1,0 +1,47 @@
+{
+  "name": "reportavnzla",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plataforma humanitaria sin fines de lucro - Terremoto Venezuela 2026",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "scrape:sync": "tsx scripts/scrape-sync.ts",
+    "ai:analyze": "tsx scripts/ai-news-analyzer.ts"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.0",
+    "@vercel/blob": "^0.23.0",
+    "cheerio": "^1.0.0-rc.12",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.6.0",
+    "drizzle-orm": "^0.30.0",
+    "leaflet": "^1.9.4",
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-leaflet": "^4.2.1",
+    "tailwind-merge": "^2.3.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.0",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^8.0.0",
+    "eslint-config-next": "^14.2.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}
