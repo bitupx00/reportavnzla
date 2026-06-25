@@ -8,7 +8,7 @@ import PersonCard from '@/components/PersonCard'
 import PersonDetail from '@/components/PersonDetail'
 import AddPersonModal from '@/components/AddPersonModal'
 import PersonasSlider from '@/components/PersonasSlider'
-import SocialFeed from '@/components/SocialFeed'
+import SocialWall from '@/components/SocialWall'
 import PorIdentificar from '@/components/PorIdentificar'
 import { approxCoords } from '@/lib/utils'
 
@@ -465,7 +465,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
         </section>
 
         {/* ═══ REDES SOCIALES ═══ */}
-        <SocialFeed />
+        <SocialWall />
       </div>
 
       {/* ═══ FOOTER ═══ */}
