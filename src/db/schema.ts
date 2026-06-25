@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, text, real, boolean, timestamp, pgEnum } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, integer, text, real, boolean, timestamp, pgEnum, index } from 'drizzle-orm/pg-core'
 
 export const estadoEnum = pgEnum('estado_persona', ['buscado', 'encontrado', 'fallecido'])
 export const medioTipoEnum = pgEnum('medio_tipo', ['foto', 'video'])
@@ -28,13 +28,11 @@ export const personas = pgTable('personas', {
   externalId: varchar('external_id', { length: 100 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  // Indexes for search performance
-  nombreIdx: 'personas_nombre_idx',
-  cedulaIdx: 'personas_cedula_idx',
-  estadoIdx: 'personas_estado_idx',
-  ubicacionIdx: 'personas_ubicacion_idx',
-}))
+}, (table) => [
+  index('personas_nombre_idx').on(table.nombre),
+  index('personas_cedula_idx').on(table.cedula),
+  index('personas_estado_idx').on(table.estado),
+])
 
 // ── Avisos / testimonios sobre una persona ───────────────────
 export const avisos = pgTable('avisos', {
