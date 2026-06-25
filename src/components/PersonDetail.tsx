@@ -126,7 +126,7 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
   // Enlace para compartir: usa el ID del registro
   const shareUrl =
     (typeof window !== 'undefined' ? window.location.origin : 'https://reportavnzla.com') +
-    `/?p=${persona.id}`
+    `/persona/${persona.id}`
   const shareText = `🔴 Ayúdanos a encontrar a ${persona.nombre} ${persona.apellido}.${
     persona.ultimaUbicacion ? ` Última vez vista: ${persona.ultimaUbicacion}.` : ''
   } ReportaVNZLA:`
