@@ -37,7 +37,7 @@ interface Props {
   persona: Persona | null
   isOpen: boolean
   onClose: () => void
-  onMarkFound: (id: string, notas: string) => Promise<void>
+  onMarkFound: (id: string, estado: string, notas: string) => Promise<void>
   onLocate?: (persona: Persona) => void
 }
 
@@ -45,6 +45,7 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
   const [loading, setLoading] = useState(false)
   const [notasEncontrado, setNotasEncontrado] = useState('')
   const [showFoundForm, setShowFoundForm] = useState(false)
+  const [estadoResol, setEstadoResol] = useState('encontrado')
   const [zoom, setZoom] = useState(false)
   const [avisos, setAvisos] = useState<Familiar[]>([])
   const [showFamForm, setShowFamForm] = useState(false)
@@ -158,7 +159,7 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
     if (!notasEncontrado.trim()) return
     setLoading(true)
     try {
-      await onMarkFound(persona.id, notasEncontrado)
+      await onMarkFound(persona.id, estadoResol, notasEncontrado)
       onClose()
     } catch (err) {
       alert('Error al actualizar')
@@ -444,21 +445,49 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
                   onClick={() => setShowFoundForm(true)}
                   className="btn-success w-full text-center"
                 >
-                  ✓ Marcar como encontrado/a
+                  ✓ Actualizar estado (encontrado / fallecido)
                 </button>
               ) : (
-                <div className="space-y-3 bg-green-50 border border-green-200 rounded-xl p-4">
-                  <h4 className="text-sm font-semibold text-green-700">¿Cómo fue encontrada esta persona?</h4>
+                <div className="space-y-3 bg-gray-50 border border-gray-200 rounded-xl p-4">
+                  <h4 className="text-sm font-semibold text-gray-700">¿Cómo se resolvió este caso?</h4>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { v: 'encontrado', label: '🟢 Encontrado/a con vida (rescatado/a)' },
+                      { v: 'fallecido', label: '⚫ Fallecido/a' },
+                    ].map((o) => (
+                      <label
+                        key={o.v}
+                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                          estadoResol === o.v ? 'border-red-500 bg-white font-semibold' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="estadoResol"
+                          value={o.v}
+                          checked={estadoResol === o.v}
+                          onChange={() => setEstadoResol(o.v)}
+                        />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+
                   <textarea
                     value={notasEncontrado}
                     onChange={(e) => setNotasEncontrado(e.target.value)}
                     rows={3}
                     className="search-input resize-none"
-                    placeholder="Describe brevemente cómo fue localizada..."
+                    placeholder="Descripción: cómo fue localizada, detalles, fuente…"
                   />
                   <div className="flex gap-2">
-                    <button onClick={handleMarkFound} disabled={loading || !notasEncontrado.trim()} className="btn-success flex-1 text-center">
-                      {loading ? 'Actualizando...' : '✓ Confirmar'}
+                    <button
+                      onClick={handleMarkFound}
+                      disabled={loading || !notasEncontrado.trim()}
+                      className={`flex-1 text-center ${estadoResol === 'fallecido' ? 'btn-secondary' : 'btn-success'}`}
+                    >
+                      {loading ? 'Actualizando…' : '✓ Confirmar'}
                     </button>
                     <button onClick={() => setShowFoundForm(false)} className="btn-secondary">
                       Cancelar

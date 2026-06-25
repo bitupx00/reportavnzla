@@ -148,11 +148,11 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     }
   }, [])
 
-  const handleMarkFound = useCallback(async (id: string, notas: string) => {
+  const handleMarkFound = useCallback(async (id: string, estado: string, notas: string) => {
     const res = await fetch('/api/personas', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, estado: 'encontrado', notas }),
+      body: JSON.stringify({ id, estado, notas }),
     })
     if (!res.ok) throw new Error('Error al actualizar')
     await fetchPersonas(searchParams.q, searchParams.estado, currentPage)
