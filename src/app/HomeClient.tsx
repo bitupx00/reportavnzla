@@ -7,6 +7,7 @@ import SearchBar from '@/components/SearchBar'
 import PersonCard from '@/components/PersonCard'
 import PersonDetail from '@/components/PersonDetail'
 import AddPersonModal from '@/components/AddPersonModal'
+import PersonasSlider from '@/components/PersonasSlider'
 
 // Dynamic import for Map (no SSR for Leaflet)
 const Map = dynamic(() => import('@/components/Map'), { ssr: false, loading: () => <div className="bg-gray-200 animate-pulse rounded-xl map-container" /> })
@@ -222,6 +223,9 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* ═══ SLIDER DE FOTOS DE PERSONAS ═══ */}
+        <PersonasSlider personas={personas} onSelect={handleSelectPersona} />
+
         {/* ═══ HERO / NON-PROFIT STATEMENT ═══ */}
         <section className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 rounded-2xl p-6 sm:p-8">
           <div className="text-center max-w-2xl mx-auto">
