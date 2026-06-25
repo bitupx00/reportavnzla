@@ -72,8 +72,8 @@ export async function POST(request: Request) {
         LOWER(TRIM(p1.nombre)) as nombre,
         LOWER(TRIM(p1.apellido)) as apellido,
         p1.cedula as cedula,
-        p1.id as id1, p1.external_id as ext1, p1.estado as estado1, p1.fuente as fuente1,
-        p2.id as id2, p2.external_id as ext2, p2.estado as estado2, p2.fuente as fuente2
+        p1.id as id1, p1.external_id as ext1, p1.estado as estado1,
+        p2.id as id2, p2.external_id as ext2, p2.estado as estado2
       FROM personas p1
       JOIN personas p2 ON 
         LOWER(TRIM(p1.nombre)) = LOWER(TRIM(p2.nombre))
