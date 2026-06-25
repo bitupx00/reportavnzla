@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import 'leaflet.markercluster'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import { fixPhotoUrl, AVATAR_FALLBACK } from '@/lib/utils'
 
 // ── Custom markers: Red (buscado), Yellow (posible avistamiento), Green (encontrado), Gray (fallecido) ──
@@ -89,6 +92,7 @@ export default function Map({
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const layersRef = useRef<L.LayerGroup>(L.layerGroup())
+  const clusterRef = useRef<L.MarkerClusterGroup | null>(null)
   const didFitRef = useRef(false)
   const [legendOpen, setLegendOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -131,8 +135,16 @@ export default function Map({
       maxZoom: 19,
     }).addTo(map)
 
-    // Add layer group
+    // Capa de zonas + grupo de clustering para personas
     layersRef.current.addTo(map)
+    const cluster = L.markerClusterGroup({
+      maxClusterRadius: 55,
+      showCoverageOnHover: false,
+      chunkedLoading: true,
+      spiderfyOnMaxZoom: true,
+    })
+    clusterRef.current = cluster
+    map.addLayer(cluster)
 
     // Mouse move for coordinates display
     map.on('mousemove', (e: L.LeafletMouseEvent) => {
@@ -152,6 +164,7 @@ export default function Map({
     if (!map) return
 
     layersRef.current.clearLayers()
+    clusterRef.current?.clearLayers()
 
     // ── ZONA CIRCLES ──
     zonas.forEach((zona) => {
@@ -222,7 +235,7 @@ export default function Map({
           </div>`
         marker.bindPopup(popup, { maxWidth: 300 })
         marker.on('click', () => onSelectPersona?.(p.id))
-        layersRef.current.addLayer(marker)
+        clusterRef.current?.addLayer(marker)
       } else {
         // Varias personas en el mismo lugar → marcador con conteo + lista seleccionable
         const color = colorEstado(first.estado)
@@ -250,7 +263,7 @@ export default function Map({
             ${grupo.length > 60 ? `<div style="padding:6px;font-size:11px;color:#888">y ${grupo.length - 60} más… (acércate para separar)</div>` : ''}
           </div>`
         marker.bindPopup(popup, { maxWidth: 280, minWidth: 250 })
-        layersRef.current.addLayer(marker)
+        clusterRef.current?.addLayer(marker)
       }
     })
 
