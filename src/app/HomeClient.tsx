@@ -207,7 +207,13 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">🇻🇪</span>
+            <img
+              src="/reportavnzla.jpg"
+              alt="ReportaVNZLA"
+              width={44}
+              height={44}
+              className="h-11 w-11 rounded-lg object-cover shadow-sm"
+            />
             <div>
               <h1 className="text-xl font-bold text-gray-900">ReportaVNZLA</h1>
               <p className="text-xs text-gray-500">Venezuela Te Encuentra — Sin fines de lucro</p>
