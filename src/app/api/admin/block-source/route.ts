@@ -28,6 +28,16 @@ function buildWhere(): string {
 export async function GET(request: NextRequest) {
   try {
     const sp = new URL(request.url).searchParams
+
+    // Borrado puntual por id (apply=1)
+    const id = sp.get('id')
+    if (id) {
+      if (sp.get('apply') !== '1') return NextResponse.json({ error: 'usa apply=1 para borrar por id' }, { status: 400 })
+      const sqlx = sqlRaw()
+      const del = (await sqlx`DELETE FROM personas WHERE id = ${id} RETURNING id`) as Array<{ id: string }>
+      return NextResponse.json({ applied: true, eliminados: del.length })
+    }
+
     const q = (sp.get('q') || '').trim()
     if (!q || q.length < 3) return NextResponse.json({ error: 'q (>=3 chars) requerido' }, { status: 400 })
     const apply = sp.get('apply') === '1'
