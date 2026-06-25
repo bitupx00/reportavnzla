@@ -1,5 +1,6 @@
+import { sqlRaw } from '@/db'
 import { db } from '@/db'
-import { personas, zonasAfectadas } from '@/db/schema'
+import { personas } from '@/db/schema'
 import { sql, desc, eq } from 'drizzle-orm'
 import HomeClient from './HomeClient'
 
@@ -29,34 +30,42 @@ async function getInitialStats() {
 
 async function getInitialPersonas() {
   try {
-    const rows = await db()
-      .select()
-      .from(personas)
-      .orderBy(desc(personas.createdAt))
-      .limit(24)
-    return rows.map(r => ({
+    const query = sqlRaw()
+    const rows = await query`
+      SELECT id, nombre, apellido, cedula, edad, genero, 
+             ultima_ubicacion as "ultimaUbicacion", descripcion,
+             foto_url as "fotoUrl", estado, lat, lng,
+             fecha_encontrado as "fechaEncontrado",
+             reportado_por_nombre as "reportadoPorNombre",
+             reportado_por_telefono as "reportadoPorTelefono",
+             reportado_por_email as "reportadoPorEmail",
+             created_at as "createdAt", updated_at as "updatedAt"
+      FROM personas 
+      ORDER BY created_at DESC 
+      LIMIT 24
+    `
+    return (rows as Record<string, unknown>[]).map((r) => ({
       ...r,
       fechaEncontrado: r.fechaEncontrado ? String(r.fechaEncontrado) : null,
       createdAt: String(r.createdAt),
       updatedAt: String(r.updatedAt),
     }))
-  } catch {
+  } catch (e) {
+    console.error('getInitialPersonas error:', e)
     return []
   }
 }
 
 async function getZonasAfectadas() {
   try {
-    const rows = await db().select().from(zonasAfectadas)
-    return rows.map(z => ({
-      id: z.id,
-      nombre: z.nombre,
-      lat: z.lat,
-      lng: z.lng,
-      radioKm: z.radioKm,
-      severidad: z.severidad,
-    }))
-  } catch {
+    const query = sqlRaw()
+    const rows = await query`
+      SELECT id, nombre, lat, lng, radio_km as "radioKm", severidad, descripcion
+      FROM zonas_afectadas
+    `
+    return rows
+  } catch (e) {
+    console.error('getZonasAfectadas error:', e)
     return []
   }
 }
@@ -68,5 +77,5 @@ export default async function HomePage() {
     getZonasAfectadas(),
   ])
 
-  return <HomeClient initialStats={stats} initialPersonas={initialPersonas} initialZonas={initialZonas} />
+  return <HomeClient initialStats={stats} initialPersonas={initialPersonas as any[]} initialZonas={initialZonas as any[]} />
 }
