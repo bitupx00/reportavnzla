@@ -73,11 +73,10 @@ export function fixPhotoUrl(url: string | null | undefined): string | null {
   if (!url) return null
   const raw = String(url).trim()
   if (!raw || raw === 'null' || raw === 'undefined') return null
-  if (!/^https?:\/\//i.test(raw)) return raw
-  return raw.replace(
-    /^(https?:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:dev|app|com|net|org|io|co|me|gob))(?=[a-z0-9])/i,
-    '$1/'
-  )
+  // Bug puntual del scraper VTB: falta "/" entre ".workers.dev" y el path
+  // (ej: ...workers.devphotos/x.webp). Reparamos SOLO ese caso; cualquier otro
+  // host (S3 .com, supabase, etc.) se deja intacto para no corromper URLs válidas.
+  return raw.replace(/(\.workers\.dev)(?=[A-Za-z0-9])/, '$1/')
 }
 
 export function severidadColor(severidad: string): string {

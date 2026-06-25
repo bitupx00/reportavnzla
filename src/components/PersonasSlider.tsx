@@ -44,7 +44,26 @@ export default function PersonasSlider({
   personas: Persona[]
   onSelect: (id: string) => void
 }) {
-  const items = personas.filter((p) => fixPhotoUrl(p.fotoUrl)).slice(0, 36) // solo con foto, máx 36
+  // Arranca con las personas que ya llegaron por SSR/prop y luego trae un lote
+  // grande (recientes, con foto real de S3) para rotar por muchos usuarios.
+  const [items, setItems] = useState<Persona[]>(() =>
+    personas.filter((p) => fixPhotoUrl(p.fotoUrl))
+  )
+  useEffect(() => {
+    let cancel = false
+    fetch('/api/personas?limit=100')
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancel) return
+        const arr = (d.data || d) as Persona[]
+        const withPhoto = Array.isArray(arr) ? arr.filter((p) => fixPhotoUrl(p.fotoUrl)) : []
+        if (withPhoto.length) setItems(withPhoto)
+      })
+      .catch(() => {})
+    return () => {
+      cancel = true
+    }
+  }, [])
   const perView = usePerView()
   const groups = Math.max(1, Math.ceil(items.length / perView))
   const [group, setGroup] = useState(0)
