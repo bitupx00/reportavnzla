@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
     await ensureSchema()
     const sql = sqlRaw()
-    const [row] = await sql`
+    const result = (await sql`
       INSERT INTO avisos (persona_id, nombre_aviso, telefono_aviso, email_aviso, mensaje)
       VALUES (
         ${personaId},
@@ -52,8 +52,8 @@ export async function POST(request: NextRequest) {
         ${email ? String(email).trim().slice(0, 150) : null},
         ${mensaje ? String(mensaje).trim() : 'Familiar / contacto'}
       )
-      RETURNING id`
-    return NextResponse.json({ ok: true, id: row?.id }, { status: 201 })
+      RETURNING id`) as Array<{ id: string }>
+    return NextResponse.json({ ok: true, id: result[0]?.id }, { status: 201 })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
