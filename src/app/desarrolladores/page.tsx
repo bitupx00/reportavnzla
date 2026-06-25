@@ -23,6 +23,9 @@ export default function DevelopersPage() {
             <a href="#endpoints" className="bg-white text-blue-900 px-6 py-2 rounded-lg font-semibold hover:bg-blue-50 transition">
               Ver Endpoints
             </a>
+            <a href="#notificaciones" className="border-2 border-white text-white px-6 py-2 rounded-lg font-semibold hover:bg-white/10 transition">
+              🤖 Notificaciones / Bots
+            </a>
             <a href="#integrar" className="border-2 border-white text-white px-6 py-2 rounded-lg font-semibold hover:bg-white/10 transition">
               ¿Cómo Integrar?
             </a>
@@ -354,6 +357,63 @@ export default function DevelopersPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </section>
+
+        {/* Notificaciones / Bots */}
+        <section id="notificaciones" className="bg-white rounded-xl shadow-sm border p-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">🤖 Notificaciones y bots (Telegram / Webhook)</h2>
+          <p className="text-gray-600 mb-6">
+            Conecta tu propio bot de Telegram (o cualquier servicio por webhook) para recibir avisos de personas
+            nuevas y consultar datos en tiempo real. Dos modos: <strong>pull</strong> (tu bot consulta el feed) y{' '}
+            <strong>push</strong> (te avisamos nosotros).
+          </p>
+
+          <h3 className="text-lg font-semibold text-gray-800 mt-2 mb-2">1) Feed para bots (pull)</h3>
+          <p className="text-gray-600 mb-2 text-sm">
+            Tu bot consulta periódicamente y usa <code className="bg-gray-100 px-1 rounded">serverTime</code> como
+            próximo <code className="bg-gray-100 px-1 rounded">since</code> para traer solo lo nuevo.
+          </p>
+          <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-green-300 overflow-x-auto mb-2">
+            GET /api/v1/feed?since=2026-06-01T00:00:00Z&amp;q=perez&amp;estado=buscado&amp;limit=50
+          </div>
+          <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-300 overflow-x-auto mb-6">
+{`{ "success": true, "serverTime": "...", "count": 2,
+  "data": [ { "id": "...", "nombre": "...", "apellido": "...", "estado": "buscado",
+              "ultimaUbicacion": "...", "fotoUrl": "...",
+              "url": "https://reportavnzla.com/persona/<id>" } ] }`}
+          </div>
+
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">2) Suscripción push (Telegram o Webhook)</h3>
+          <p className="text-gray-600 mb-2 text-sm">
+            Registra una suscripción con filtros; te enviaremos las personas nuevas que coincidan. Guarda el{' '}
+            <code className="bg-gray-100 px-1 rounded">token</code> que devuelve para gestionarla.
+          </p>
+          <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-300 overflow-x-auto mb-2">
+{`POST /api/v1/subscriptions
+# Telegram:
+{ "canal": "telegram", "telegramBotToken": "123:ABC", "telegramChatId": "12345678",
+  "q": "perez", "estado": "buscado" }
+# Webhook (recomendado, no compartes el token del bot):
+{ "canal": "webhook", "webhookUrl": "https://tu-servidor/hook", "estado": "buscado" }
+
+→ { "success": true, "id": "...", "token": "..." }
+
+DELETE /api/v1/subscriptions?id=<id>&token=<token>   # desactivar`}
+          </div>
+          <p className="text-gray-500 text-xs mb-6">
+            🔒 Por seguridad, el modo <strong>webhook</strong> es preferible: tú envías a tu Telegram desde tu servidor
+            y no compartes el token de tu bot. El push corre por un proceso programado (cada ~10 min).
+          </p>
+
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">3) Probar tu bot de Telegram</h3>
+          <p className="text-gray-600 mb-2 text-sm">
+            Verifica que tu bot y chat funcionan (crea el bot con <code className="bg-gray-100 px-1 rounded">@BotFather</code>
+            y obtén tu <code className="bg-gray-100 px-1 rounded">chatId</code>).
+          </p>
+          <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-300 overflow-x-auto">
+{`POST /api/v1/telegram
+{ "botToken": "123:ABC", "chatId": "12345678", "message": "Hola desde ReportaVNZLA" }`}
           </div>
         </section>
 
