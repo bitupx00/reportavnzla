@@ -29,12 +29,12 @@ export default function SocialSidebar({
         📣 Redes
       </button>
 
-      {/* Fondo (solo móvil) */}
-      {open && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setOpen(false)} />}
+      {/* Fondo (solo móvil) — por encima del header */}
+      {open && <div className="fixed inset-0 z-[55] bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
 
-      {/* Panel */}
+      {/* Panel — por encima del header (z-40) para que no lo tape en móvil */}
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-screen w-[86vw] max-w-[340px] flex-col border-r border-gray-200 bg-gray-100 shadow-2xl transition-transform duration-300 ${
+        className={`fixed left-0 top-0 z-[60] flex h-screen w-[86vw] max-w-[340px] flex-col border-r border-gray-200 bg-gray-100 shadow-2xl transition-transform duration-300 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-hidden={!open}
