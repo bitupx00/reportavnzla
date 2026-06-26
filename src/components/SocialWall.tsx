@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState } from 'react'
 
 const HASHTAGS = ['ReportaVNZLA', 'TerremotoVenezuela2026', 'VenezuelaTeEncuentra']
 const HT_TAGS = HASHTAGS.map((h) => '#' + h).join(' ')
@@ -12,101 +12,8 @@ Si conoces a una persona desaparecida o tienes información que pueda ayudar, ut
 Juntos podemos conectar a las familias
 #ReportaVnzla`
 
-interface Post {
-  id: string
-  url: string
-  plataforma: string
-}
-
-function PostEmbed({ url, plataforma }: { url: string; plataforma: string }) {
-  if (plataforma === 'x') {
-    const id = (url.match(/status\/(\d+)/) || [])[1]
-    if (!id) {
-      return (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="block break-all text-xs text-blue-600 underline">
-          {url}
-        </a>
-      )
-    }
-    // iframe oficial de X: renderiza el tweet directo (sin flash de link)
-    return (
-      <iframe
-        src={`https://platform.twitter.com/embed/Tweet.html?id=${id}&theme=light&dnt=true`}
-        className="w-full rounded-xl border border-gray-200 bg-white"
-        height={520}
-        loading="lazy"
-        title="Tweet"
-        scrolling="no"
-      />
-    )
-  }
-  if (plataforma === 'instagram') {
-    const clean = url.split('?')[0].replace(/\/$/, '')
-    return (
-      <iframe
-        src={`${clean}/embed`}
-        className="w-full rounded-xl border border-gray-200 bg-white"
-        height={520}
-        loading="lazy"
-        title="Instagram"
-        scrolling="no"
-      />
-    )
-  }
-  return (
-    <iframe
-      src={`https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(url)}&width=350`}
-      className="w-full rounded-xl border border-gray-200 bg-white"
-      height={520}
-      loading="lazy"
-      title="Facebook"
-      scrolling="no"
-    />
-  )
-}
-
 export default function SocialWall() {
-  const [posts, setPosts] = useState<Post[]>([])
-  const [url, setUrl] = useState('')
-  const [adding, setAdding] = useState(false)
-  const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
-
-  const load = useCallback(() => {
-    fetch('/api/social-posts')
-      .then((r) => r.json())
-      .then((d) => setPosts(d.data || []))
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  const addPost = async () => {
-    const u = url.trim()
-    if (!u) return
-    setAdding(true)
-    setError('')
-    try {
-      const r = await fetch('/api/social-posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: u }),
-      })
-      const d = await r.json()
-      if (!r.ok) {
-        setError(d.error || 'No se pudo agregar')
-      } else {
-        setUrl('')
-        load()
-      }
-    } catch {
-      setError('No se pudo agregar')
-    } finally {
-      setAdding(false)
-    }
-  }
 
   const copyMensaje = async () => {
     try {
@@ -127,26 +34,6 @@ export default function SocialWall() {
 
   return (
     <div className="space-y-4">
-      {/* Agregar publicación (arriba) */}
-      <div className="rounded-xl border border-gray-200 bg-white p-3">
-        <p className="mb-2 text-xs font-semibold text-gray-700">➕ Agregar una publicación</p>
-        <p className="mb-2 text-[11px] leading-snug text-gray-400">
-          Pega el enlace de un post de X, Instagram o Facebook y se mostrará aquí.
-        </p>
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addPost()}
-          placeholder="https://x.com/.../status/…"
-          className="search-input text-sm"
-          inputMode="url"
-        />
-        <button onClick={addPost} disabled={adding} className="btn-primary mt-2 w-full text-center text-sm disabled:opacity-50">
-          {adding ? 'Agregando…' : 'Agregar publicación'}
-        </button>
-        {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-      </div>
-
       {/* Accesos a hashtags en vivo */}
       <div className="grid grid-cols-2 gap-2">
         {redes.map((r) => (
@@ -189,17 +76,6 @@ export default function SocialWall() {
         <button onClick={copyMensaje} className="mt-2 w-full rounded-lg border border-red-200 bg-white px-2 py-1.5 font-semibold text-red-700 hover:bg-red-50">
           {copied ? '✓ Mensaje copiado' : 'Copiar mensaje'}
         </button>
-      </div>
-
-      {/* Publicaciones agregadas */}
-      <div className="space-y-3">
-        {posts.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-gray-200 bg-white p-4 text-center text-xs text-gray-400">
-            Sé el primero en compartir una publicación de redes pegando su enlace arriba.
-          </p>
-        ) : (
-          posts.map((p) => <PostEmbed key={p.id} url={p.url} plataforma={p.plataforma} />)
-        )}
       </div>
     </div>
   )
