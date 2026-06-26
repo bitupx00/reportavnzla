@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
       nuevos.forEach((c, i) => {
         const b = i * 9
         tuples.push(`($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9})`)
-        params.push(c.nombre.slice(0, 200) || 'Sin nombre', c.apellido.slice(0, 200), c.ubicacion.slice(0, 300) || null,
+        params.push(c.nombre.slice(0, 100) || 'Sin nombre', c.apellido.slice(0, 100), c.ubicacion || null,
           c.descripcion, c.foto, 'encontrado', c.edad, c.notas, c.extId)
       })
       const res = (await sql.query(
