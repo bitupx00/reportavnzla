@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sqlRaw } from '@/db'
+import { motivoRechazo } from '@/lib/antispam'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -40,6 +41,7 @@ export async function GET(request: NextRequest) {
 
     let fetched = 0
     let localizado = 0
+    let spam = 0
     let totalPages = 0
     const candidatos: Array<{
       nombre: string; apellido: string; ubicacion: string; descripcion: string | null
@@ -61,6 +63,8 @@ export async function GET(request: NextRequest) {
         localizado++
         const { nombre, apellido } = splitNombre(String(it.nombre || ''))
         const ubicacion = String(it.ubicacion || '').trim()
+        // Anti-spam: la API de origen está contaminada (p.ej. TRUSTEDF57/infinityhotel.it x cientos)
+        if (motivoRechazo({ nombre: `${nombre} ${apellido}`, descripcion: it.descripcion, ultimaUbicacion: ubicacion })) { spam++; continue }
         const notasParts: string[] = []
         if (it.localizadoPor) notasParts.push(`Localizado por ${it.localizadoPor}${it.localizadoRelacion ? ` (${it.localizadoRelacion})` : ''}`)
         if (it.localizadoNota) notasParts.push(String(it.localizadoNota))
@@ -79,7 +83,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (candidatos.length === 0) {
-      return NextResponse.json({ apply, from, pages, fetched, localizado, insertados: 0, yaExistian: 0, totalPages, nextPage: from + pages > totalPages ? null : from + pages, fin: from + pages > totalPages })
+      return NextResponse.json({ apply, from, pages, fetched, localizado, spam, insertados: 0, yaExistian: 0, totalPages, nextPage: from + pages > totalPages ? null : from + pages, fin: from + pages > totalPages })
     }
 
     // Dedup dentro del lote (por key y por extId)
@@ -124,7 +128,7 @@ export async function GET(request: NextRequest) {
 
     const nextPage = from + pages > totalPages ? null : from + pages
     return NextResponse.json({
-      apply, from, pages, fetched, localizado,
+      apply, from, pages, fetched, localizado, spam,
       candidatosUnicos: lote.length, yaExistian, nuevos: nuevos.length, insertados,
       totalPages, nextPage, fin: nextPage === null,
     })

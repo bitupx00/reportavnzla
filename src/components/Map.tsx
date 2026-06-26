@@ -435,8 +435,8 @@ export default function Map({
     <div className="relative">
       <div ref={mapRef} className={className || 'map-container'} />
 
-      {/* Buscador predictivo (arriba del mapa) */}
-      <div className="absolute left-1/2 top-3 z-[500] w-[92%] max-w-md -translate-x-1/2">
+      {/* Buscador predictivo (arriba del mapa) — z por debajo de modales (z-50) y sidebar (z-55+) */}
+      <div className="absolute left-1/2 top-3 z-30 w-[92%] max-w-md -translate-x-1/2">
         <div className="relative">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
           <input
@@ -491,13 +491,13 @@ export default function Map({
 
       {/* Coordinates display */}
       {cursorLat !== null && (
-        <div className="absolute bottom-3 left-3 bg-black/70 text-white text-xs px-2 py-1 rounded z-[400] pointer-events-none">
+        <div className="absolute bottom-3 left-3 bg-black/70 text-white text-xs px-2 py-1 rounded z-10 pointer-events-none">
           📍 {cursorLat.toFixed(4)}, {cursorLng?.toFixed(4)}
         </div>
       )}
 
       {/* Leyenda minimizable (abajo-derecha, fuera del control de zoom) */}
-      <div className="absolute bottom-3 right-3 z-[400]">
+      <div className="absolute bottom-3 right-3 z-20">
         <button
           type="button"
           onClick={() => setLegendOpen((o) => !o)}
