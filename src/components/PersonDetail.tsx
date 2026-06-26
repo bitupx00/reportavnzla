@@ -148,13 +148,16 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
   }
 
   const handleMarkFound = async () => {
-    if (!notasEncontrado.trim()) return
     setLoading(true)
     try {
       await onMarkFound(persona.id, estadoResol, notasEncontrado)
-      onClose()
-    } catch (err) {
-      alert('Error al actualizar')
+      alert(
+        estadoResol === 'fallecido'
+          ? '✓ Registrado como fallecido/a. Gracias por la información.'
+          : '✓ ¡Gracias! Marcado como encontrado/a con vida.'
+      )
+    } catch {
+      alert('⚠️ No se pudo actualizar. Revisa tu conexión e intenta de nuevo.')
     } finally {
       setLoading(false)
     }
@@ -471,12 +474,12 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
                     onChange={(e) => setNotasEncontrado(e.target.value)}
                     rows={3}
                     className="search-input resize-none"
-                    placeholder="Descripción: cómo fue localizada, detalles, fuente…"
+                    placeholder="Descripción (opcional): cómo fue localizada, detalles, fuente…"
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={handleMarkFound}
-                      disabled={loading || !notasEncontrado.trim()}
+                      disabled={loading}
                       className={`flex-1 text-center ${estadoResol === 'fallecido' ? 'btn-secondary' : 'btn-success'}`}
                     >
                       {loading ? 'Actualizando…' : '✓ Confirmar'}
