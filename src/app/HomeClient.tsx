@@ -76,6 +76,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
   const [searchParams, setSearchParams] = useState({ q: '', estado: '' })
   const [socialOpen, setSocialOpen] = useState(false)
   const [mapPersonas, setMapPersonas] = useState<any[]>([])
+  const [centros, setCentros] = useState<any[]>([])
 
   // Sidebar de redes: abierto por defecto en desktop, cerrado (cajón) en móvil
   useEffect(() => {
@@ -87,6 +88,14 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     fetch('/api/personas/mapa')
       .then((r) => r.json())
       .then((d) => setMapPersonas(d.data || []))
+      .catch(() => {})
+  }, [])
+
+  // Centros de acopio para el mapa
+  useEffect(() => {
+    fetch('/api/recursos?tipo=centro_acopio')
+      .then((r) => r.json())
+      .then((d) => setCentros((d.data || []).filter((c: any) => c.lat && c.lng)))
       .catch(() => {})
   }, [])
 
@@ -422,6 +431,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
           <Map
             personas={mapMarkers}
             zonas={zonas}
+            centros={centros}
             onSelectPersona={handleSelectPersona}
             focus={mapFocus}
           />

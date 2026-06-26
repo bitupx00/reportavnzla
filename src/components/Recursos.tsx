@@ -96,7 +96,7 @@ export default function Recursos() {
 
       {/* Form */}
       {showForm && (
-        <div className="mb-4 grid grid-cols-1 gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3 sm:grid-cols-2">
+        <div className="mb-4 flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
           <input className="search-input" placeholder={esCentro ? 'Nombre del centro *' : 'Lugar / edificación *'} value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
           <input className="search-input" placeholder="Dirección / zona" value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} />
           {esCentro ? (
@@ -124,7 +124,7 @@ export default function Recursos() {
           Aún no hay {esCentro ? 'centros de acopio' : 'estructuras'} registradas. Agrega la primera con “+ Agregar”.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-2">
           {items.map((r) => (
             <div key={r.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm">
               <div className="flex items-start justify-between gap-2">

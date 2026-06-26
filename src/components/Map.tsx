@@ -74,9 +74,20 @@ export interface ZonaAfectada {
   severidad: string
 }
 
+interface CentroAcopio {
+  id: string
+  nombre: string
+  lat: number | null
+  lng: number | null
+  recibe?: string | null
+  contacto?: string | null
+  direccion?: string | null
+}
+
 interface MapProps {
   personas: PersonaMarker[]
   zonas?: ZonaAfectada[]
+  centros?: CentroAcopio[]
   onSelectPersona?: (id: string) => void
   className?: string
   focus?: { lat: number; lng: number; key?: number } | null
@@ -85,6 +96,7 @@ interface MapProps {
 export default function Map({
   personas,
   zonas = [],
+  centros = [],
   onSelectPersona,
   className,
   focus,
@@ -199,6 +211,26 @@ export default function Map({
       layersRef.current.addLayer(zoneMarker)
     })
 
+    // ── CENTROS DE ACOPIO (📦) ──
+    centros.forEach((c) => {
+      if (!c.lat || !c.lng) return
+      const icon = L.divIcon({
+        html: `<div style="font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))">📦</div>`,
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      })
+      const marker = L.marker([c.lat, c.lng], { icon })
+      marker.bindPopup(`
+        <div style="min-width:200px;font-family:system-ui">
+          <div style="font-weight:700;font-size:14px">📦 ${c.nombre}</div>
+          ${c.direccion ? `<div style="font-size:12px;margin-top:3px">📍 ${c.direccion}</div>` : ''}
+          ${c.recibe ? `<div style="font-size:12px;margin-top:3px;color:#16a34a">Recibe: ${c.recibe}</div>` : ''}
+          ${c.contacto ? `<div style="font-size:12px;margin-top:3px">📞 ${c.contacto}</div>` : ''}
+        </div>`)
+      layersRef.current.addLayer(marker)
+    })
+
     // ── PERSON MARKERS (agrupados por ubicación) ──
     const statusLabels: Record<string, string> = {
       buscado: '🔴 Buscado/a',
@@ -281,7 +313,7 @@ export default function Map({
         didFitRef.current = true
       }
     }
-  }, [personas, zonas, onSelectPersona])
+  }, [personas, zonas, centros, onSelectPersona])
 
   // Expose selectPersona to window for popup buttons
   useEffect(() => {
