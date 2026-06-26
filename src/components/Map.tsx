@@ -227,6 +227,7 @@ export default function Map({
           ${c.direccion ? `<div style="font-size:12px;margin-top:3px">📍 ${c.direccion}</div>` : ''}
           ${c.recibe ? `<div style="font-size:12px;margin-top:3px;color:#16a34a">Recibe: ${c.recibe}</div>` : ''}
           ${c.contacto ? `<div style="font-size:12px;margin-top:3px">📞 ${c.contacto}</div>` : ''}
+          <a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}" target="_blank" rel="noopener" style="display:block;margin-top:8px;text-align:center;background:#1a73e8;color:#fff;text-decoration:none;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600">🗺️ Cómo llegar (Google Maps)</a>
         </div>`)
       layersRef.current.addLayer(marker)
     })
@@ -263,6 +264,7 @@ export default function Map({
             ${p.aproximada ? `<div style="font-size:11px;margin-top:3px;color:#b45309">⚠️ Posición aproximada por localidad</div>` : ''}
             <div style="margin-top:8px;clear:both">
               <button onclick="window.__selectPersona('${p.id}')" style="background:#dc2626;color:white;border:none;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;width:100%">Ver ficha completa</button>
+              <a href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}" target="_blank" rel="noopener" style="display:block;margin-top:6px;text-align:center;background:#1a73e8;color:#fff;text-decoration:none;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600">🗺️ Ver ubicación en Google Maps</a>
             </div>
           </div>`
         marker.bindPopup(popup, { maxWidth: 300 })
@@ -293,6 +295,7 @@ export default function Map({
             <div style="font-weight:700;font-size:12px;padding:8px;background:#f8f8f8;border-radius:6px 6px 0 0">${grupo.length} personas en ${first.ultimaUbicacion || 'esta zona'} — selecciona:</div>
             <div style="max-height:280px;overflow-y:auto">${lista}</div>
             ${grupo.length > 60 ? `<div style="padding:6px;font-size:11px;color:#888">y ${grupo.length - 60} más… (acércate para separar)</div>` : ''}
+            <a href="https://www.google.com/maps/search/?api=1&query=${first.lat},${first.lng}" target="_blank" rel="noopener" style="display:block;margin:8px 6px 4px;text-align:center;background:#1a73e8;color:#fff;text-decoration:none;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600">🗺️ Ver ubicación en Google Maps</a>
           </div>`
         marker.bindPopup(popup, { maxWidth: 280, minWidth: 250 })
         clusterRef.current?.addLayer(marker)
