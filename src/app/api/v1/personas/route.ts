@@ -204,14 +204,22 @@ export async function POST(request: NextRequest) {
         reportadoPorEmail: item.reportado_por_email || item.reportadoPorEmail || null,
       }))
 
-      // Upsert: insert new, skip existing (by external_id)
+      // Upsert: insert new, UPDATE estado if existing (by external_id)
       const results = []
       for (const record of records) {
         if (record.externalId) {
-          const existing = await db().select({ id: personas.id }).from(personas)
+          const existing = await db().select({ id: personas.id, estado: personas.estado }).from(personas)
             .where(eq(personas.externalId, record.externalId)).limit(1)
           if (existing.length > 0) {
-            results.push({ ...record, _skipped: true })
+            // Update estado if changed (buscado → encontrado)
+            if (existing[0].estado !== record.estado) {
+              await db().update(personas)
+                .set({ estado: record.estado })
+                .where(eq(personas.id, existing[0].id))
+              results.push({ ...record, _updated: true })
+            } else {
+              results.push({ ...record, _skipped: true })
+            }
             continue
           }
         }
@@ -227,12 +235,14 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      const inserted = results.filter((r: any) => !r._skipped && !r._error)
+      const inserted = results.filter((r: any) => !r._skipped && !r._error && !r._updated)
       const skipped = results.filter((r: any) => r._skipped)
+      const updated = results.filter((r: any) => r._updated)
 
       return NextResponse.json({
         success: true,
         inserted: inserted.length,
+        updated: updated.length,
         skipped: skipped.length,
         total: results.length,
       }, { status: 201, headers: corsHeaders })

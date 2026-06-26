@@ -36,7 +36,7 @@ SYNC_HEADERS = {
 }
 
 BATCH_SIZE = 50
-STATS_CACHE = defaultdict(lambda: {"imported": 0, "skipped": 0, "errors": 0, "found_count": 0})
+STATS_CACHE = defaultdict(lambda: {"imported": 0, "skipped": 0, "updated": 0, "errors": 0, "found_count": 0})
 
 def log(source, msg):
     print(f"[{source}] {msg}", flush=True)
@@ -67,6 +67,7 @@ def import_batch(personas, source):
             result = r.json()
             STATS_CACHE[source]["imported"] += result.get("imported", 0)
             STATS_CACHE[source]["skipped"] += result.get("skipped", 0)
+            STATS_CACHE[source]["updated"] += result.get("updated", 0)
             STATS_CACHE[source]["errors"] += result.get("errors", 0)
         except Exception as e:
             STATS_CACHE[source]["errors"] += len(batch)
@@ -127,7 +128,7 @@ def sync_dtv(start_page=1):
         total_pages = data.get("totalPages", "?")
         if page % 10 == 0 or page == 1:
             s = STATS_CACHE["DTV"]
-            log("DTV", f"Page {page}/{total_pages} — new:{s['imported']} dup:{s['skipped']} found:{s['found_count']}")
+            log("DTV", f"Page {page}/{total_pages} — new:{s['imported']} upd:{s['updated']} dup:{s['skipped']} found:{s['found_count']}")
         
         page += 1
         if page > data.get("totalPages", 9999):
@@ -135,7 +136,7 @@ def sync_dtv(start_page=1):
         time.sleep(1.5)
     
     s = STATS_CACHE["DTV"]
-    log("DTV", f"✅ Done — new:{s['imported']} dup:{s['skipped']} err:{s['errors']} found:{s['found_count']}")
+    log("DTV", f"✅ Done — new:{s['imported']} upd:{s['updated']} dup:{s['skipped']} err:{s['errors']} found:{s['found_count']}")
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # SOURCE 2: VTB (venezuela-te-busca-app)
