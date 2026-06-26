@@ -12,6 +12,7 @@ import AlliedSites from '@/components/AlliedSites'
 import SocialSidebar from '@/components/SocialSidebar'
 import PorIdentificar from '@/components/PorIdentificar'
 import SocialWall from '@/components/SocialWall'
+import Recursos from '@/components/Recursos'
 import { approxCoords } from '@/lib/utils'
 import { compressImageToDataUrl } from '@/lib/image'
 
@@ -77,6 +78,7 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
   const [socialOpen, setSocialOpen] = useState(false)
   const [mapPersonas, setMapPersonas] = useState<any[]>([])
   const [centros, setCentros] = useState<any[]>([])
+  const [edificios, setEdificios] = useState<any[]>([])
 
   // Sidebar de redes: abierto por defecto en desktop, cerrado (cajón) en móvil
   useEffect(() => {
@@ -96,6 +98,14 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
     fetch('/api/recursos?tipo=centro_acopio')
       .then((r) => r.json())
       .then((d) => setCentros((d.data || []).filter((c: any) => c.lat && c.lng)))
+      .catch(() => {})
+  }, [])
+
+  // Edificios dañados para el mapa
+  useEffect(() => {
+    fetch('/api/v1/edificios?mapa=1')
+      .then((r) => r.json())
+      .then((d) => setEdificios(Array.isArray(d) ? d.filter((e: any) => e.lat && e.lng) : []))
       .catch(() => {})
   }, [])
 
@@ -432,10 +442,14 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
             personas={mapMarkers}
             zonas={zonas}
             centros={centros}
+            edificios={edificios}
             onSelectPersona={handleSelectPersona}
             focus={mapFocus}
           />
         </section>
+
+        {/* ═══ CENTROS DE ACOPIO + ESTRUCTURAS AFECTADAS ═══ */}
+        <Recursos />
 
         {/* ═══ REDES SOCIALES ═══ */}
         <SocialWall />

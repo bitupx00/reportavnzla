@@ -12,14 +12,40 @@ const SUPABASE_KEY = 'sb_publishable_i7iEDrCVZcSt0k3RGFrY4g_WrtZBB4w'
  * GET  /api/v1/edificios/import   → import all buildings (one-time)
  * GET  /api/v1/edificios          → list buildings
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const sql = sqlRaw()
+    const url = new URL(request.url)
+    const isMapa = url.searchParams.get('mapa') === '1'
+
+    // Mapa mode: lightweight payload with coords only
+    if (isMapa) {
+      const rows = (await sql`
+        SELECT id, nombre, direccion, lat, lng, nivel_danio, nombres_atrapados, tiene_desaparecidos
+        FROM edificios
+        WHERE lat IS NOT NULL AND lng IS NOT NULL
+      `) as Array<Record<string, unknown>>
+      return NextResponse.json(rows.map((r: any) => ({
+        id: r.id,
+        nombre: r.nombre,
+        direccion: r.direccion,
+        lat: r.lat,
+        lng: r.lng,
+        nivelDanio: r.nivel_danio,
+        nombresAtrapados: r.nombres_atrapados,
+        tieneDesaparecidos: r.tiene_desaparecidos,
+      })))
+    }
+
+    // Full list mode
     const result = await sql`SELECT count(*)::int AS c FROM edificios`
     const count = (result as Array<{ c: number }>)[0].c
-    
+
     if (count > 0) {
-      return NextResponse.json({ success: true, count, message: 'Buildings already imported' })
+      const rows = (await sql`
+        SELECT * FROM edificios ORDER BY created_at DESC LIMIT 500
+      `) as Array<Record<string, unknown>>
+      return NextResponse.json({ success: true, count, data: rows })
     }
     
     // Fetch all buildings from Supabase

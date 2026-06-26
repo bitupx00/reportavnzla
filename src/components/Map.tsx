@@ -84,10 +84,22 @@ interface CentroAcopio {
   direccion?: string | null
 }
 
+interface EdificioDanado {
+  id: string
+  nombre: string
+  direccion?: string | null
+  lat: number
+  lng: number
+  nivelDanio?: string | null
+  nombresAtrapados?: string | null
+  tieneDesaparecidos?: boolean
+}
+
 interface MapProps {
   personas: PersonaMarker[]
   zonas?: ZonaAfectada[]
   centros?: CentroAcopio[]
+  edificios?: EdificioDanado[]
   onSelectPersona?: (id: string) => void
   className?: string
   focus?: { lat: number; lng: number; key?: number } | null
@@ -97,6 +109,7 @@ export default function Map({
   personas,
   zonas = [],
   centros = [],
+  edificios = [],
   onSelectPersona,
   className,
   focus,
@@ -232,6 +245,40 @@ export default function Map({
       layersRef.current.addLayer(marker)
     })
 
+    // ── EDIFICIOS DAÑADOS (🏚️) ──
+    const danioEmoji: Record<string, string> = {
+      colapsado: '⬛',
+      severo: '🟥',
+      parcial: '🟨',
+      leve: '🟩',
+    }
+    const danioLabel: Record<string, string> = {
+      colapsado: 'Colapsado',
+      severo: 'Daño severo',
+      parcial: 'Daño parcial',
+      leve: 'Daño leve',
+    }
+    edificios.forEach((e) => {
+      const emoji = danioEmoji[e.nivelDanio || ''] || '🏚️'
+      const icon = L.divIcon({
+        html: `<div style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));position:relative">${emoji}</div>`,
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      })
+      const marker = L.marker([e.lat, e.lng], { icon })
+      const popup = `
+        <div style="min-width:220px;font-family:system-ui">
+          <div style="font-weight:700;font-size:14px">🏚️ ${e.nombre}</div>
+          ${e.direccion ? `<div style="font-size:12px;margin-top:3px">📍 ${e.direccion}</div>` : ''}
+          ${e.nivelDanio ? `<div style="font-size:12px;margin-top:3px;font-weight:600;color:#dc2626">⚠️ ${danioLabel[e.nivelDanio] || e.nivelDanio}</div>` : ''}
+          ${e.tieneDesaparecidos ? `<div style="font-size:12px;margin-top:3px;font-weight:600;color:#dc2626">🚨 Tiene personas desaparecidas</div>` : ''}
+          ${e.nombresAtrapados ? `<div style="font-size:11px;margin-top:3px;color:#b45309">Nombres reportados: ${e.nombresAtrapados}</div>` : ''}
+        </div>`
+      marker.bindPopup(popup, { maxWidth: 300 })
+      layersRef.current.addLayer(marker)
+    })
+
     // ── PERSON MARKERS (agrupados por ubicación) ──
     const statusLabels: Record<string, string> = {
       buscado: '🔴 Buscado/a',
@@ -306,6 +353,7 @@ export default function Map({
     const allPoints: L.LatLngTuple[] = [
       ...personas.filter(p => p.lat && p.lng).map(p => [p.lat, p.lng] as L.LatLngTuple),
       ...zonas.filter(z => z.lat && z.lng).map(z => [z.lat, z.lng] as L.LatLngTuple),
+      ...edificios.filter(e => e.lat && e.lng).map(e => [e.lat, e.lng] as L.LatLngTuple),
     ]
     // Ajustar la vista SOLO la primera vez que llegan datos (no en cada cambio,
     // para que al cerrar una ficha el mapa NO se aleje a todo el país).
@@ -316,7 +364,7 @@ export default function Map({
         didFitRef.current = true
       }
     }
-  }, [personas, zonas, centros, onSelectPersona])
+  }, [personas, zonas, centros, edificios, onSelectPersona])
 
   // Expose selectPersona to window for popup buttons
   useEffect(() => {
@@ -377,6 +425,13 @@ export default function Map({
                 <span className="w-3.5 h-3.5 rounded-full border-2 border-yellow-500 bg-yellow-500/10 inline-block shrink-0"></span>
                 <span>Media</span>
               </div>
+            </div>
+            <div className="border-t border-gray-100 pt-1.5">
+              <div className="text-[10px] text-gray-400 mb-1">Edificios</div>
+              <div className="flex items-center gap-2"><span>⬛</span><span>Colapsado</span></div>
+              <div className="flex items-center gap-2"><span>🟥</span><span>Daño severo</span></div>
+              <div className="flex items-center gap-2"><span>🟨</span><span>Daño parcial</span></div>
+              <div className="flex items-center gap-2"><span>📦</span><span>Centro de acopio</span></div>
             </div>
           </div>
         )}
