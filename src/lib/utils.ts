@@ -52,8 +52,22 @@ export function statusColor(estado: string): string {
 
 /**
  * Avatar de respaldo (SVG data-URI) para cuando una foto no carga.
- * Evita un request extra y nunca falla.
+ * Genera un avatar con iniciales y color basado en el nombre.
  */
+export function avatarFallback(nombre: string, apellido: string): string {
+  const initials = ((nombre?.[0] || '') + (apellido?.[0] || '')).toUpperCase() || '?'
+  // Deterministic color from name
+  const name = (nombre || '') + (apellido || '')
+  const hue = name.split('').reduce((h, c) => h + c.charCodeAt(0), 0) % 360
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">` +
+    `<rect width="96" height="96" fill="hsl(${hue},60%,92%)"/>` +
+    `<text x="48" y="56" text-anchor="middle" font-family="system-ui,sans-serif" font-size="36" font-weight="600" fill="hsl(${hue},50%,35%)">${initials}</text>` +
+    `</svg>`
+  )
+}
+
+/** Legacy data-URI fallback (generic gray silhouette) — kept for map markers */
 export const AVATAR_FALLBACK =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -63,10 +77,14 @@ export const AVATAR_FALLBACK =
 /**
  * Repara URLs de foto malformadas guardadas por el scraper.
  *
- * Bug en producción: falta el "/" entre el dominio y el path, p.ej.
+ * Bug 1: falta el "/" entre el dominio y el path, p.ej.
  *   https://...workers.devphotos/migrated/x.webp
  *   → https://...workers.dev/photos/migrated/x.webp
- * Inserta la barra que falta tras el dominio; no toca URLs ya correctas.
+ *
+ * Bug 2: VTB movió sus imágenes de /UUID.webp a /media/photos/UUID.webp.
+ *   https://...workers.dev/UUID.webp  (404)
+ *   → https://...workers.dev/media/photos/UUID.webp  (200)
+ *
  * Devuelve null si la URL es vacía/inválida.
  */
 export function fixPhotoUrl(url: string | null | undefined): string | null {
@@ -74,9 +92,13 @@ export function fixPhotoUrl(url: string | null | undefined): string | null {
   const raw = String(url).trim()
   if (!raw || raw === 'null' || raw === 'undefined') return null
   // Bug puntual del scraper VTB: falta "/" entre ".workers.dev" y el path
-  // (ej: ...workers.devphotos/x.webp). Reparamos SOLO ese caso; cualquier otro
-  // host (S3 .com, supabase, etc.) se deja intacto para no corromper URLs válidas.
-  return raw.replace(/(\.workers\.dev)(?=[A-Za-z0-9])/, '$1/')
+  let fixed = raw.replace(/(\.workers\.dev)(?=[A-Za-z0-9])/, '$1/')
+  // VTB migration: /UUID.ext → /media/photos/UUID.ext
+  fixed = fixed.replace(
+    /(\.workers\.dev)\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.[a-z]+)$/i,
+    '$1/media/photos/$2'
+  )
+  return fixed
 }
 
 /**

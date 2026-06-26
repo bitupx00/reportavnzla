@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { formatDate, formatCedula, statusColor, fixPhotoUrl, AVATAR_FALLBACK } from '@/lib/utils'
+import { formatDate, formatCedula, statusColor, fixPhotoUrl, avatarFallback } from '@/lib/utils'
 import { compressImageToDataUrl } from '@/lib/image'
 
 interface Familiar {
@@ -247,7 +247,7 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
                   onClick={() => setZoom(true)}
                   onError={(e) => {
                     e.currentTarget.onerror = null
-                    e.currentTarget.src = AVATAR_FALLBACK
+                    e.currentTarget.src = avatarFallback(persona.nombre, persona.apellido)
                   }}
                 />
               ) : (
@@ -284,7 +284,7 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
                 className="max-h-[92vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
                 onError={(e) => {
                   e.currentTarget.onerror = null
-                  e.currentTarget.src = AVATAR_FALLBACK
+                  e.currentTarget.src = avatarFallback(persona.nombre, persona.apellido)
                 }}
               />
               <button

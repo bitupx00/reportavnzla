@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { fixPhotoUrl, AVATAR_FALLBACK } from '@/lib/utils'
+import { fixPhotoUrl, avatarFallback } from '@/lib/utils'
 import { compressImageToDataUrl } from '@/lib/image'
 
 interface Item {
@@ -147,13 +147,13 @@ export default function PorIdentificar({ onSelect }: { onSelect?: (id: string) =
               title="¿La reconoces? Haz click para añadir o completar su información"
             >
               <img
-                src={fixPhotoUrl(p.fotoUrl) || AVATAR_FALLBACK}
+                src={fixPhotoUrl(p.fotoUrl) || avatarFallback('', '')}
                 alt="Persona por identificar"
                 loading="lazy"
                 className="aspect-[250/351] w-full object-cover transition-transform group-hover:scale-105"
                 onError={(e) => {
                   e.currentTarget.onerror = null
-                  e.currentTarget.src = AVATAR_FALLBACK
+                  e.currentTarget.src = avatarFallback('', '')
                 }}
               />
             </button>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { fixPhotoUrl, AVATAR_FALLBACK } from '@/lib/utils'
+import { fixPhotoUrl, avatarFallback } from '@/lib/utils'
 
 interface Persona {
   id: string
@@ -217,7 +217,7 @@ export default function PersonasSlider({
                         height={351}
                         onError={(e) => {
                           e.currentTarget.onerror = null
-                          e.currentTarget.src = AVATAR_FALLBACK
+                          e.currentTarget.src = avatarFallback(p.nombre, p.apellido)
                         }}
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
