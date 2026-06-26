@@ -4,6 +4,8 @@
 > El servidor se usa **únicamente como base de datos** (no como hosting de aplicaciones).
 > Información para que los desarrolladores la tengan en cuenta al integrar. Verificado el 2026-06-26.
 >
+> ✅ **Estado: APROVISIONADO (2026-06-26).** Cluster PostgreSQL 17 dedicado `exchange` operativo (aislado del resto), con PostGIS, PgBouncer, esquema completo, RLS y roles (lectura/escritura). Acceso actualmente **solo local** (sin exposición a internet); el acceso de plataformas se habilita por API o canal controlado. Credenciales por canal privado.
+>
 > ⚠️ Este documento **no incluye** datos de acceso (host, usuario, contraseñas, puertos de administración). Esos se entregan por canal privado a las plataformas autorizadas.
 
 ---
