@@ -55,6 +55,7 @@ async function applyDedup(sql: ReturnType<typeof sqlRaw>) {
   const keepRows = (await sql`
     WITH normalized AS (
       SELECT id,
+        external_id, foto_url, cedula, edad, created_at,
         (SELECT string_agg(w, ' ' ORDER BY w)
          FROM unnest(string_to_array(
            lower(trim(coalesce(nombre, ''))) || ' ' || lower(trim(coalesce(apellido, ''))),
