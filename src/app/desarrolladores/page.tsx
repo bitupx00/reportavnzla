@@ -384,6 +384,15 @@ export default function DevelopersPage() {
               "url": "https://reportavnzla.com/persona/<id>" } ] }`}
           </div>
 
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">1b) Centros de acopio y estructuras</h3>
+          <p className="mb-2 text-sm text-gray-600">
+            Datos de ayuda (centros de acopio y edificaciones afectadas) con coordenadas, para mapas u otras
+            integraciones.
+          </p>
+          <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-green-300 overflow-x-auto mb-6">
+            GET /api/v1/recursos?tipo=centro_acopio   ·   GET /api/v1/recursos?tipo=estructura
+          </div>
+
           <h3 className="text-lg font-semibold text-gray-800 mb-2">2) Suscripción push (Telegram o Webhook)</h3>
           <p className="text-gray-600 mb-2 text-sm">
             Registra una suscripción con filtros; te enviaremos las personas nuevas que coincidan. Guarda el{' '}
