@@ -58,7 +58,7 @@ export function avatarFallback(nombre: string, apellido: string): string {
   const initials = ((nombre?.[0] || '') + (apellido?.[0] || '')).toUpperCase() || '?'
   // Deterministic color from name
   const name = (nombre || '') + (apellido || '')
-  const hue = name.split('').reduce((h, c) => h + c.charCodeAt(0), 0) % 360
+  const hue = Array.from(name).reduce((h, c) => h + c.charCodeAt(0), 0) % 360
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">` +
     `<rect width="96" height="96" fill="hsl(${hue},60%,92%)"/>` +
