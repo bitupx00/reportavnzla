@@ -510,6 +510,114 @@ curl -X POST "https://reportavnzla.com/api/v1/sync" \\
   -d '{"source":"mi-plataforma","persons":[...]}'`}</pre>
               </div>
             </div>
+
+            {/* Bidireccional: centros de acopio + estructuras */}
+            <div className="border-t pt-6">
+              <h3 className="font-semibold text-lg mb-1">4. Centros de acopio y estructuras (bidireccional)</h3>
+              <p className="text-sm text-gray-500 mb-3">
+                <code>GET</code> para <strong>recibir</strong> y <code>POST</code> para <strong>enviar</strong> — un objeto o un lote
+                <code> {'{ items: [...] }'}</code> (máx. 500). Asíncrono, CORS abierto, anti-spam, deduplicado e idempotente por <code>externalId</code>.
+                Usa <code>?since=</code> (epoch&nbsp;ms o ISO) + <code>?page=</code>/<code>?pageSize=</code> para sincronización incremental.
+              </p>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 mb-1">cURL — recibir / enviar</div>
+                  <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs overflow-x-auto">
+                    <pre className="text-yellow-200">{`# Recibir estructuras nuevas desde una fecha
+curl "https://reportavnzla.com/api/v1/recursos?tipo=estructura&since=1782000000000&pageSize=200"
+
+# Recibir centros de acopio
+curl "https://reportavnzla.com/api/v1/recursos?tipo=centro_acopio"
+
+# Enviar (lote): 1 centro + 1 estructura
+curl -X POST "https://reportavnzla.com/api/v1/recursos" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Source: mi-plataforma.org" \\
+  -d '{"items":[
+    {"tipo":"centro_acopio","nombre":"Iglesia X","direccion":"Catia La Mar",
+     "recibe":"agua, alimentos","contacto":"0412-0000000","lat":10.6,"lng":-67.03},
+    {"tipo":"estructura","nombre":"Edificio Y","ciudad":"La Guaira",
+     "nivelDanio":"severo","externalId":"miorg-001","lat":10.6,"lng":-66.93}
+  ]}'`}</pre>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 mb-1">JavaScript — recibir / enviar</div>
+                  <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs overflow-x-auto">
+                    <pre className="text-blue-200">{`// Recibir (paginado incremental)
+const r = await fetch(
+  'https://reportavnzla.com/api/v1/recursos?tipo=estructura&since=' + lastSync
+)
+const { data, nextPage } = await r.json()
+
+// Enviar lote
+await fetch('https://reportavnzla.com/api/v1/recursos', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Api-Source': 'mi-plataforma.org',
+  },
+  body: JSON.stringify({ items: [
+    { tipo: 'centro_acopio', nombre: 'Iglesia X', recibe: 'agua' },
+    { tipo: 'estructura', nombre: 'Edificio Y', nivelDanio: 'severo',
+      externalId: 'miorg-001' },
+  ]}),
+})`}</pre>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 mb-1">Python</div>
+                  <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs overflow-x-auto">
+                    <pre className="text-green-200">{`import requests
+B = 'https://reportavnzla.com/api/v1/recursos'
+
+# Recibir estructuras (sincronización incremental)
+out = requests.get(B, params={'tipo': 'estructura', 'since': last_sync}).json()
+for e in out['data']:
+    print(e['nombre'], e.get('nivelDanio'))
+
+# Enviar lote (recibir+enviar simultáneo entre plataformas)
+requests.post(B, headers={'X-Api-Source': 'mi-plataforma.org'}, json={'items': [
+    {'tipo': 'centro_acopio', 'nombre': 'Iglesia X', 'recibe': 'agua'},
+    {'tipo': 'estructura', 'nombre': 'Edificio Y', 'nivelDanio': 'severo',
+     'externalId': 'miorg-001'},
+]})`}</pre>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 mb-1">PHP</div>
+                  <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs overflow-x-auto">
+                    <pre className="text-purple-200">{`<?php
+$B = 'https://reportavnzla.com/api/v1/recursos';
+
+// Recibir
+$data = json_decode(file_get_contents($B . '?tipo=centro_acopio'), true);
+
+// Enviar lote
+$ch = curl_init($B);
+curl_setopt_array($ch, [
+  CURLOPT_POST => true,
+  CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'X-Api-Source: mi-plataforma.org'],
+  CURLOPT_POSTFIELDS => json_encode(['items' => [
+    ['tipo' => 'estructura', 'nombre' => 'Edificio Y', 'nivelDanio' => 'severo', 'externalId' => 'miorg-001'],
+  ]]),
+  CURLOPT_RETURNTRANSFER => true,
+]);
+$resp = json_decode(curl_exec($ch), true);`}</pre>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-lg bg-blue-50 p-3 text-xs text-blue-800">
+                <strong>Compartir datos entre plataformas (enviar y recibir a la vez):</strong> programa un job que cada N minutos
+                haga <code>GET …?since=&lt;última sync&gt;</code> para <em>recibir</em> lo nuevo y un <code>POST {'{items}'}</code> para <em>enviar</em> lo tuyo.
+                El <code>externalId</code> evita duplicados en ambos sentidos, así que es seguro ejecutarlo en bucle.
+              </div>
+            </div>
           </div>
         </section>
 
