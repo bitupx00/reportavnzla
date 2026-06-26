@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🇻🇪 ReportaVNZLA — Venezuela Te Encuentra
+<img src="https://reportavnzla.com/reportavnzla.jpg" alt="ReportaVNZLA" width="120" height="120" style="border-radius:16px" />
+
+# ReportaVNZLA — Venezuela Te Encuentra
 
 **Plataforma humanitaria sin fines de lucro para el registro y seguimiento de personas desaparecidas, encontradas y fallecidas tras el terremoto de Venezuela 2026.**
 
