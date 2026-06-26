@@ -154,10 +154,13 @@ export async function POST(request: NextRequest) {
     let body = await request.json()
     const isBatch = Array.isArray(body)
 
-    // Rate-limit por IP
-    const rl = await rateLimit(getIp(request), 40)
-    if (!rl.ok) {
-      return NextResponse.json({ success: false, error: 'Rate limit: demasiadas solicitudes' }, { status: 429, headers: corsHeaders })
+    // Rate-limit por IP (bypass con x-sync-secret para imports internos)
+    const syncSecret = request.headers.get('x-sync-secret')
+    if (syncSecret !== 'DEDUP_VNZLA_2026') {
+      const rl = await rateLimit(getIp(request), 40)
+      if (!rl.ok) {
+        return NextResponse.json({ success: false, error: 'Rate limit: demasiadas solicitudes' }, { status: 429, headers: corsHeaders })
+      }
     }
 
     // Anti-spam: bloquear fuente/enlaces inyectados
