@@ -274,6 +274,7 @@ export default function Map({
           ${e.nivelDanio ? `<div style="font-size:12px;margin-top:3px;font-weight:600;color:#dc2626">⚠️ ${danioLabel[e.nivelDanio] || e.nivelDanio}</div>` : ''}
           ${e.tieneDesaparecidos ? `<div style="font-size:12px;margin-top:3px;font-weight:600;color:#dc2626">🚨 Tiene personas desaparecidas</div>` : ''}
           ${e.nombresAtrapados ? `<div style="font-size:11px;margin-top:3px;color:#b45309">Nombres reportados: ${e.nombresAtrapados}</div>` : ''}
+          <a href="https://www.google.com/maps/search/?api=1&query=${e.lat},${e.lng}" target="_blank" rel="noopener" style="display:block;margin-top:8px;text-align:center;background:#1a73e8;color:#fff;text-decoration:none;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600">🗺️ Cómo llegar (Google Maps)</a>
         </div>`
       marker.bindPopup(popup, { maxWidth: 300 })
       layersRef.current.addLayer(marker)
