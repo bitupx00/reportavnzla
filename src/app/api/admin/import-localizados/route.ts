@@ -120,7 +120,8 @@ export async function GET(request: NextRequest) {
       })
       const res = (await sql.query(
         `INSERT INTO personas (${cols.join(',')}) VALUES ${tuples.join(',')}
-         ON CONFLICT (external_id) DO NOTHING RETURNING id`,
+         ON CONFLICT (external_id) WHERE external_id IS NOT NULL AND external_id <> '' DO NOTHING
+         RETURNING id`,
         params
       )) as Array<{ id: string }>
       insertados = res.length
