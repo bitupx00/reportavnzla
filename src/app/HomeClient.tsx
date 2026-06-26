@@ -8,6 +8,7 @@ import PersonCard from '@/components/PersonCard'
 import PersonDetail from '@/components/PersonDetail'
 import AddPersonModal from '@/components/AddPersonModal'
 import PersonasSlider from '@/components/PersonasSlider'
+import AlliedSites from '@/components/AlliedSites'
 import SocialSidebar from '@/components/SocialSidebar'
 import PorIdentificar from '@/components/PorIdentificar'
 import { approxCoords } from '@/lib/utils'
@@ -317,6 +318,9 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* ═══ SLIDER DE FOTOS DE PERSONAS ═══ */}
         <PersonasSlider personas={personasVisibles} onSelect={handleSelectPersona} />
+
+        {/* ═══ PLATAFORMAS ALIADAS ═══ */}
+        <AlliedSites />
 
         {/* ═══ HERO / NON-PROFIT STATEMENT ═══ */}
         <section className="relative overflow-hidden bg-gradient-to-br from-red-50/80 via-amber-50/40 to-blue-50/30 border border-white/60 rounded-3xl p-8 sm:p-10 shadow-sm">

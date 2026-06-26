@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sqlRaw } from '@/db'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 /**
  * Dedup de personas.
@@ -71,6 +72,23 @@ export async function GET(request: NextRequest) {
         )
         RETURNING p.id`) as Array<{ id: string }>
       return NextResponse.json({ applied: true, eliminados: deleted.length, report })
+    }
+
+    // ── Aplicar borrado por NOMBRE+APELLIDO+UBICACIÓN (conserva 1 por grupo) ──
+    // Conserva, por grupo, la fila con foto y más antigua. Excluye 'por identificar'.
+    if (apply === 'nombre') {
+      const deleted = (await sql`
+        DELETE FROM personas p
+        WHERE coalesce(p.sin_identificar, false) = false
+        AND p.id NOT IN (
+          SELECT DISTINCT ON (lower(trim(nombre)), lower(trim(apellido)), lower(trim(coalesce(ultima_ubicacion,''))))
+                 id FROM personas
+          WHERE coalesce(sin_identificar, false) = false
+          ORDER BY lower(trim(nombre)), lower(trim(apellido)), lower(trim(coalesce(ultima_ubicacion,''))),
+                   (foto_url IS NOT NULL) DESC, (cedula IS NOT NULL) DESC, created_at ASC
+        )
+        RETURNING p.id`) as Array<{ id: string }>
+      return NextResponse.json({ applied: true, modo: 'nombre+apellido+ubicacion', eliminados: deleted.length, report })
     }
 
     return NextResponse.json({ dryRun: true, ...report })
