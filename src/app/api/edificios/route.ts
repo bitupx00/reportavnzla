@@ -83,6 +83,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// DELETE /api/edificios?id= (moderación)
+export async function DELETE(request: NextRequest) {
+  try {
+    const id = new URL(request.url).searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+    const sql = sqlRaw()
+    const rows = (await sql`DELETE FROM edificios WHERE id = ${id} RETURNING id`) as Array<{ id: string }>
+    if (!rows[0]) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
+    return NextResponse.json({ ok: true })
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 })
+  }
+}
+
 // PATCH — añadir/actualizar la foto de una estructura (foto comprimida en data URI)
 export async function PATCH(request: NextRequest) {
   try {
