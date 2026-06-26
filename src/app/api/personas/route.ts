@@ -101,6 +101,30 @@ export async function POST(request: NextRequest) {
       reportadoPorEmail: body.reportadoPorEmail || null,
     }
 
+    // Anti-duplicado en el momento del alta: si ya existe una persona con el mismo
+    // nombre + apellido + última ubicación (normalizados), devolvemos esa en vez de
+    // crear un duplicado. Por cédula también, si viene cédula.
+    const n = (s: string | null | undefined) => (s || '').trim().toLowerCase()
+    const dupConds = [
+      and(
+        sql`lower(trim(${personas.nombre})) = ${n(record.nombre)}`,
+        sql`lower(trim(${personas.apellido})) = ${n(record.apellido)}`,
+        sql`lower(trim(coalesce(${personas.ultimaUbicacion}, ''))) = ${n(record.ultimaUbicacion)}`
+      ),
+    ]
+    if (record.cedula) {
+      dupConds.push(sql`${personas.cedula} = ${record.cedula}`)
+    }
+    const [existente] = await db()
+      .select()
+      .from(personas)
+      .where(or(...dupConds))
+      .limit(1)
+
+    if (existente) {
+      return NextResponse.json({ ...existente, _duplicado: true }, { status: 200 })
+    }
+
     const [result] = await db().insert(personas).values(record).returning()
 
     return NextResponse.json(result, { status: 201 })

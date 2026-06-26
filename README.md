@@ -53,15 +53,20 @@ All data is public and open to maximize its usefulness during the emergency.
 
 | Función | Descripción |
 |---------|-------------|
-| 🗺️ **Mapa interactivo** | Visualización en tiempo real con marcadores por estado (buscado, encontrado, fallecido) usando Leaflet |
-| 🔎 **Búsqueda avanzada** | Filtro por nombre, apellido, cédula, estado y paginación |
-| 📝 **Reporte ciudadano** | Formulario para registrar personas desaparecidas con datos del reportante |
-| 📸 **Carga de medios** | Subida de fotos y videos adjuntos por persona (Vercel Blob) |
-| 📊 **Estadísticas en vivo** | Conteo total, por estado: buscados, encontrados, fallecidos |
-| 🔄 **Sincronización VTB** | Script de sincronización con [venezuelatebusca.com](https://venezuelatebusca.com) |
+| 🗺️ **Mapa interactivo** | Marcadores por estado (buscado/encontrado/fallecido), **clustering dinámico**, límites de Venezuela, leyenda minimizable y agrupación de personas en una misma ubicación con lista seleccionable |
+| 🔍 **Buscador predictivo del mapa** | Barra superior que busca a la vez **personas, estructuras afectadas, centros de acopio y ciudades** y vuela al punto seleccionado |
+| 🧭 **Integración con Google Maps** | Botón "Ver/Cómo llegar en Google Maps" en cada ficha y en los popups del mapa (solo con coordenadas exactas) |
+| 🖼️ **Slider de fotos** | Carrusel responsivo de personas registradas (250×351), deslizable en móvil/tablet/escritorio, autorrotación |
+| 📝 **Reporte ciudadano** | Formulario para registrar personas con **anti-duplicado en el alta** y campos opcionales (cédula, familiares/contacto) |
+| 📷 **Fotos sin almacenamiento externo** | Compresión en el navegador a data-URI (sin depender de Blob); se pueden añadir fotos a registros y estructuras sin foto |
+| 🪪 **Por identificar** | Captura con cámara de personas encontradas sin identificar para completar luego |
+| 🏚️ **Centros de acopio y estructuras afectadas** | Sidebar con listado + búsqueda por ciudad/zona, mapeo en el mapa y aporte ciudadano (importado de fuentes aliadas) |
+| 📣 **Difusión en redes** | Accesos a hashtags (#ReportaVNZLA) y mensaje listo para WhatsApp/X |
+| 📊 **Estadísticas en vivo** | Conteo total y por estado: buscados, encontrados, fallecidos |
+| 🛡️ **Anti-spam** | Lista de bloqueo, rate-limit por IP, honeypot y bloqueo de enlaces |
+| 🔁 **Dedup automático** | Cron diario + anti-duplicado en el alta + índice único por `external_id` (no colapsa personas distintas con nombre genérico) |
+| 🔓 **API de desarrolladores** | Endpoints REST públicos (personas, edificios, recursos, feed/telegram) para integrar con otros sistemas |
 | 📱 **Responsive** | Diseño adaptado para móviles, tablets y escritorio |
-| 🌙 **UI clara** | Interfaz optimizada para uso urgente con colores por severidad |
-| 🔓 **Datos abiertos** | API REST pública para consumo de terceros |
 | 🧪 **Validación** | Schemas Zod para validación de entrada en frontend y backend |
 
 ---
@@ -266,6 +271,47 @@ Subir foto o video adjunto a una persona.
 | `file` | `File` | ✅ | Archivo a subir |
 
 **Response (201):** Retorna el registro de medio con URL pública.
+
+---
+
+### Búsqueda y mapa
+
+| Endpoint | Descripción |
+|----------|-------------|
+| `GET /api/buscar?q=` | Búsqueda **unificada y predictiva**: personas, estructuras, centros de acopio y ciudades. Devuelve `{ personas, estructuras, centros, lugares }` con coordenadas listas para el mapa |
+| `GET /api/personas/mapa` | Personas con ubicación para el mapa (payload ligero) |
+
+### Centros de acopio y estructuras afectadas
+
+| Endpoint | Descripción |
+|----------|-------------|
+| `GET /api/recursos?tipo=centro_acopio\|estructura` | Lista recursos de la comunidad |
+| `POST /api/recursos` | Añadir un centro de acopio (anti-spam + rate-limit) |
+| `GET /api/edificios?q=` | Estructuras afectadas (tabla `edificios`) con búsqueda |
+| `POST /api/edificios` | Añadir una estructura afectada |
+| `PATCH /api/edificios` | Añadir/actualizar la foto de una estructura (`{ id, fotoUrl }`, solo data-URI) |
+
+### API pública para desarrolladores (`/api/v1`)
+
+| Endpoint | Descripción |
+|----------|-------------|
+| `GET /api/v1/personas` | Listado/alta de personas (rate-limit + anti-spam) |
+| `GET /api/v1/edificios` | Estructuras afectadas (con `?mapa=1` para payload ligero) |
+| `GET /api/v1/recursos?tipo=` | Centros de acopio y estructuras con coordenadas |
+| `GET /api/v1/feed?since=` | Feed para bots (nuevos registros) |
+| `POST /api/v1/subscriptions` | Suscripción push (Telegram / Webhook) |
+| `POST /api/v1/telegram` | Webhook del bot de Telegram |
+
+> CORS habilitado (`Access-Control-Allow-Origin: *`). Documentación interactiva en `/desarrolladores`.
+
+### Mantenimiento / moderación
+
+| Endpoint | Descripción |
+|----------|-------------|
+| `GET /api/cron/dedup` | **Dedup automático** (cron diario): elimina re-importaciones por `external_id`, crea índice único y depura duplicados por nombre+ubicación+foto. Protegido por `CRON_SECRET` si está definido |
+| `GET /api/admin/dedup` | Dry-run / aplicar dedup manual (`apply=external\|cedula\|nombre`) |
+| `GET /api/admin/block-source?q=` | Localizar/eliminar registros inyectados (spam) |
+| `GET /api/admin/cleanup` | Eliminar registros de prueba |
 
 ---
 

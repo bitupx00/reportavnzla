@@ -1,4 +1,7 @@
 {
+  "crons": [
+    { "path": "/api/cron/dedup", "schedule": "0 6 * * *" }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
