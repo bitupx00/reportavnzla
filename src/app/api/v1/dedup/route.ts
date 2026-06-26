@@ -13,15 +13,17 @@ export const maxDuration = 300
 async function dryRun(sql: ReturnType<typeof sqlRaw>) {
   const total = (await sql`SELECT count(*)::int AS c FROM personas`) as Array<{ c: number }>
 
-  // Normalize full name: concat nombre + apellido, split words, sort, rejoin
+  // Normalize full name: concat nombre + apellido, split into words, sort alphabetically, rejoin
   // This catches "juan carlos perez" + "gonzalez" == "juan carlos" + "perez gonzalez"
   const stats = (await sql`
     WITH normalized AS (
       SELECT id,
-        array_to_string(array_sort(string_to_array(
-          lower(trim(coalesce(nombre, ''))) || ' ' || lower(trim(coalesce(apellido, ''))),
-          ' '
-        )), ' ') AS fullnorm
+        (SELECT string_agg(w, ' ' ORDER BY w)
+         FROM unnest(string_to_array(
+           lower(trim(coalesce(nombre, ''))) || ' ' || lower(trim(coalesce(apellido, ''))),
+           ' '
+         )) AS w
+         WHERE w <> '') AS fullnorm
       FROM personas
       WHERE (nombre IS NOT NULL AND trim(nombre) <> '')
          OR (apellido IS NOT NULL AND trim(apellido) <> '')
@@ -40,10 +42,12 @@ async function dryRun(sql: ReturnType<typeof sqlRaw>) {
     WITH normalized AS (
       SELECT id,
         nombre, apellido,
-        array_to_string(array_sort(string_to_array(
-          lower(trim(coalesce(nombre, ''))) || ' ' || lower(trim(coalesce(apellido, ''))),
-          ' '
-        )), ' ') AS fullnorm
+        (SELECT string_agg(w, ' ' ORDER BY w)
+         FROM unnest(string_to_array(
+           lower(trim(coalesce(nombre, ''))) || ' ' || lower(trim(coalesce(apellido, ''))),
+           ' '
+         )) AS w
+         WHERE w <> '') AS fullnorm
       FROM personas
       WHERE (nombre IS NOT NULL AND trim(nombre) <> '')
          OR (apellido IS NOT NULL AND trim(apellido) <> '')
@@ -75,7 +79,7 @@ async function applyDedup(sql: ReturnType<typeof sqlRaw>) {
   const before = (await sql`SELECT count(*)::int AS c FROM personas`) as Array<{ c: number }>
 
   // Delete duplicates: keep best record per normalized full name group
-  const result = (await sql`
+  await sql`
     WITH normalized AS (
       SELECT id,
         external_id,
@@ -83,10 +87,12 @@ async function applyDedup(sql: ReturnType<typeof sqlRaw>) {
         cedula,
         edad,
         created_at,
-        array_to_string(array_sort(string_to_array(
-          lower(trim(coalesce(nombre, ''))) || ' ' || lower(trim(coalesce(apellido, ''))),
-          ' '
-        )), ' ') AS fullnorm
+        (SELECT string_agg(w, ' ' ORDER BY w)
+         FROM unnest(string_to_array(
+           lower(trim(coalesce(nombre, ''))) || ' ' || lower(trim(coalesce(apellido, ''))),
+           ' '
+         )) AS w
+         WHERE w <> '') AS fullnorm
       FROM personas
       WHERE (nombre IS NOT NULL AND trim(nombre) <> '')
          OR (apellido IS NOT NULL AND trim(apellido) <> '')
@@ -107,8 +113,7 @@ async function applyDedup(sql: ReturnType<typeof sqlRaw>) {
     )
     DELETE FROM personas
     WHERE id IN (SELECT id FROM ranked WHERE rn > 1)
-    RETURNING count(*)::int AS deleted
-  `) as Array<{ deleted: number }>
+  `
 
   const after = (await sql`SELECT count(*)::int AS c FROM personas`) as Array<{ c: number }>
 
