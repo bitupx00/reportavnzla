@@ -328,13 +328,31 @@ export default function PersonDetail({ persona, isOpen, onClose, onMarkFound, on
             <div className="bg-red-50 border border-red-100 rounded-lg p-3">
               <div className="text-xs text-red-400">📍 Última vez vista aquí</div>
               <div className="font-semibold text-sm text-red-800">{persona.ultimaUbicacion}</div>
-              {onLocate && (
-                <button
-                  onClick={() => onLocate(persona)}
-                  className="mt-2 inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
-                >
-                  🗺️ Ver en el mapa
-                </button>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {onLocate && (
+                  <button
+                    onClick={() => onLocate(persona)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                  >
+                    🗺️ Ver en el mapa
+                  </button>
+                )}
+                {/* Solo cuando hay coordenadas exactas (no aproximadas por localidad) */}
+                {persona.lat != null && persona.lng != null && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${persona.lat},${persona.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                  >
+                    📍 Ver en Google Maps
+                  </a>
+                )}
+              </div>
+              {(persona.lat == null || persona.lng == null) && (
+                <p className="mt-1.5 text-[11px] text-red-400/80">
+                  Ubicación aproximada por localidad — sin coordenadas exactas.
+                </p>
               )}
             </div>
           )}
