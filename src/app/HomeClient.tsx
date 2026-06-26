@@ -11,7 +11,7 @@ import PersonasSlider from '@/components/PersonasSlider'
 import AlliedSites from '@/components/AlliedSites'
 import SocialSidebar from '@/components/SocialSidebar'
 import PorIdentificar from '@/components/PorIdentificar'
-import Recursos from '@/components/Recursos'
+import SocialWall from '@/components/SocialWall'
 import { approxCoords } from '@/lib/utils'
 import { compressImageToDataUrl } from '@/lib/image'
 
@@ -427,8 +427,8 @@ export default function HomeClient({ initialStats, initialPersonas, initialZonas
           />
         </section>
 
-        {/* ═══ CENTROS DE ACOPIO Y ESTRUCTURAS AFECTADAS ═══ */}
-        <Recursos />
+        {/* ═══ REDES SOCIALES ═══ */}
+        <SocialWall />
 
         {/* ═══ DATA SOURCES + EXTERNAL LINKS ═══ */}
         <section className="relative overflow-hidden bg-gradient-to-br from-blue-50/70 via-white to-amber-50/30 border border-white/60 rounded-3xl p-6 shadow-sm">

@@ -1,12 +1,12 @@
 'use client'
 
-import SocialWall from './SocialWall'
+import Recursos from './Recursos'
 
 /**
- * Sidebar izquierdo desplegable con el muro de redes sociales.
+ * Sidebar izquierdo desplegable con los CENTROS DE ACOPIO / estructuras afectadas.
  * - Desktop: acoplado a la izquierda; el contenido principal se desplaza.
  * - Móvil: cajón (drawer) con fondo oscuro.
- * - Pestaña "📣 Redes" para abrir cuando está colapsado.
+ * - Pestaña "📦 Acopios" para abrir cuando está colapsado.
  */
 export default function SocialSidebar({
   open,
@@ -24,9 +24,9 @@ export default function SocialSidebar({
           open ? 'pointer-events-none opacity-0' : 'opacity-100'
         }`}
         style={{ writingMode: 'vertical-rl' }}
-        aria-label="Abrir redes sociales"
+        aria-label="Abrir centros de acopio"
       >
-        📣 Redes
+        📦 Acopios
       </button>
 
       {/* Fondo (solo móvil) — por encima del header */}
@@ -34,13 +34,13 @@ export default function SocialSidebar({
 
       {/* Panel — por encima del header (z-40) para que no lo tape en móvil */}
       <aside
-        className={`fixed left-0 top-0 z-[60] flex h-screen w-[86vw] max-w-[340px] flex-col border-r border-gray-200 bg-gray-100 shadow-2xl transition-transform duration-300 ${
+        className={`fixed left-0 top-0 z-[60] flex h-screen w-[86vw] max-w-[360px] flex-col border-r border-gray-200 bg-gray-100 shadow-2xl transition-transform duration-300 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-hidden={!open}
       >
         <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-          <span className="font-semibold text-gray-800">📣 Redes sociales</span>
+          <span className="font-semibold text-gray-800">📦 Centros de acopio</span>
           <button
             onClick={() => setOpen(false)}
             className="text-2xl leading-none text-gray-400 hover:text-gray-600"
@@ -51,7 +51,7 @@ export default function SocialSidebar({
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-3">
-          <SocialWall />
+          <Recursos />
         </div>
       </aside>
     </>
