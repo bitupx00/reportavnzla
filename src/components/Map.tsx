@@ -124,6 +124,60 @@ export default function Map({
   const [cursorLat, setCursorLat] = useState<number | null>(null)
   const [cursorLng, setCursorLng] = useState<number | null>(null)
 
+  // ── Buscador predictivo (personas, estructuras, centros, lugares) ──
+  const [search, setSearch] = useState('')
+  const [results, setResults] = useState<Array<any>>([])
+  const [searching, setSearching] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+
+  useEffect(() => {
+    const term = search.trim()
+    if (term.length < 2) {
+      setResults([])
+      setSearching(false)
+      return
+    }
+    setSearching(true)
+    const ctrl = new AbortController()
+    const t = setTimeout(() => {
+      fetch(`/api/buscar?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
+        .then((r) => r.json())
+        .then((d) => {
+          const merged = [
+            ...(d.personas || []),
+            ...(d.lugares || []),
+            ...(d.estructuras || []),
+            ...(d.centros || []),
+          ]
+          setResults(merged)
+          setShowResults(true)
+        })
+        .catch(() => {})
+        .finally(() => setSearching(false))
+    }, 220)
+    return () => {
+      clearTimeout(t)
+      ctrl.abort()
+    }
+  }, [search])
+
+  const goToResult = (r: any) => {
+    setShowResults(false)
+    setSearch(r.label)
+    const map = mapInstanceRef.current
+    if (map && r.lat != null && r.lng != null) {
+      map.flyTo([r.lat, r.lng], r.tipo === 'lugar' ? 14 : 17, { duration: 0.8 })
+    }
+    if (r.tipo === 'persona' && r.id) onSelectPersona?.(r.id)
+  }
+
+  const tipoMeta: Record<string, { icon: string; label: string }> = {
+    persona: { icon: '👤', label: 'Persona' },
+    estructura: { icon: '🏚️', label: 'Estructura' },
+    centro: { icon: '📦', label: 'Centro de acopio' },
+    lugar: { icon: '📍', label: 'Lugar' },
+  }
+
   // Init map
   useEffect(() => {
     setMounted(true)
@@ -380,6 +434,60 @@ export default function Map({
   return (
     <div className="relative">
       <div ref={mapRef} className={className || 'map-container'} />
+
+      {/* Buscador predictivo (arriba del mapa) */}
+      <div className="absolute left-1/2 top-3 z-[500] w-[92%] max-w-md -translate-x-1/2">
+        <div className="relative">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onFocus={() => results.length && setShowResults(true)}
+            placeholder="Buscar persona, estructura, ciudad…"
+            className="w-full rounded-full border border-gray-200 bg-white/95 py-2.5 pl-9 pr-9 text-sm shadow-lg backdrop-blur outline-none focus:border-red-400"
+          />
+          {search && (
+            <button
+              onClick={() => {
+                setSearch('')
+                setResults([])
+                setShowResults(false)
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label="Limpiar"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {showResults && (search.trim().length >= 2) && (
+          <div className="mt-1.5 max-h-[60vh] overflow-y-auto rounded-2xl border border-gray-100 bg-white shadow-2xl">
+            {searching && results.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-gray-400">Buscando…</div>
+            ) : results.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-gray-400">Sin resultados para “{search.trim()}”.</div>
+            ) : (
+              results.map((r, i) => (
+                <button
+                  key={`${r.tipo}-${r.id || r.label}-${i}`}
+                  onClick={() => goToResult(r)}
+                  className="flex w-full items-center gap-2 border-b border-gray-50 px-3 py-2 text-left hover:bg-gray-50"
+                >
+                  <span className="text-base">{tipoMeta[r.tipo]?.icon || '📍'}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-gray-800">{r.label}</span>
+                    {r.sublabel && <span className="block truncate text-xs text-gray-400">{r.sublabel}</span>}
+                  </span>
+                  <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                    {tipoMeta[r.tipo]?.label || ''}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Coordinates display */}
       {cursorLat !== null && (
