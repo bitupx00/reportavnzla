@@ -7,10 +7,20 @@ interface Recurso {
   tipo: string
   nombre: string
   direccion: string | null
+  lat: number | null
+  lng: number | null
   recibe: string | null
   nivelDano: string | null
   descripcion: string | null
   contacto: string | null
+}
+
+function mapsUrl(r: Recurso): string {
+  if (r.lat != null && r.lng != null) {
+    return `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lng}`
+  }
+  const q = [r.nombre, r.direccion].filter(Boolean).join(', ') + ', Venezuela'
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
 }
 
 const NIVELES = ['leve', 'moderado', 'severo', 'colapsado']
@@ -29,6 +39,7 @@ export default function Recursos() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ ...EMPTY })
   const [saving, setSaving] = useState(false)
+  const [q, setQ] = useState('')
 
   const load = useCallback((t: string) => {
     fetch(`/api/recursos?tipo=${t}`)
@@ -67,6 +78,17 @@ export default function Recursos() {
   }
 
   const esCentro = tipo === 'centro_acopio'
+
+  const term = q.trim().toLowerCase()
+  const visibles = term
+    ? items.filter((r) =>
+        [r.nombre, r.direccion, r.recibe, r.descripcion, r.contacto]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(term)
+      )
+    : items
 
   return (
     <section className="rounded-2xl border border-gray-100 bg-white p-5">
@@ -118,20 +140,56 @@ export default function Recursos() {
         </div>
       )}
 
+      {/* Buscador por ciudad / estado / texto */}
+      <div className="relative mb-3">
+        <input
+          className="search-input pl-8"
+          placeholder="Buscar por ciudad, estado o nombre… (ej. Vargas, Caracas)"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+        {q && (
+          <button
+            onClick={() => setQ('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            aria-label="Limpiar búsqueda"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       {/* Lista */}
       {items.length === 0 ? (
         <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-400">
           Aún no hay {esCentro ? 'centros de acopio' : 'estructuras'} registradas. Agrega la primera con “+ Agregar”.
         </p>
+      ) : visibles.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-400">
+          Sin resultados para “{q}”.
+        </p>
       ) : (
         <div className="flex flex-col gap-2">
-          {items.map((r) => (
+          {visibles.map((r) => (
             <div key={r.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm">
               <div className="flex items-start justify-between gap-2">
                 <span className="font-semibold text-gray-800">{r.nombre}</span>
-                {r.nivelDano && (
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${nivelColor[r.nivelDano] || 'bg-gray-100'}`}>{r.nivelDano}</span>
-                )}
+                <div className="flex shrink-0 items-center gap-1">
+                  {r.nivelDano && (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${nivelColor[r.nivelDano] || 'bg-gray-100'}`}>{r.nivelDano}</span>
+                  )}
+                  <a
+                    href={mapsUrl(r)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Abrir en Google Maps"
+                    aria-label="Abrir en Google Maps"
+                    className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 hover:bg-blue-100"
+                  >
+                    🗺️ Mapa
+                  </a>
+                </div>
               </div>
               {r.direccion && <div className="mt-1 text-xs text-gray-600">📍 {r.direccion}</div>}
               {r.recibe && <div className="mt-1 text-xs text-green-700">📦 Recibe: {r.recibe}</div>}
