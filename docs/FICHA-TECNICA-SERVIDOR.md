@@ -1,157 +1,93 @@
-# Ficha Técnica del Servidor — Debian 13 (hub de intercambio de datos)
+# Ficha Técnica del Servidor de Base de Datos (intercambio de datos)
 
-> Especificaciones reales del servidor donde vivirá la base de datos PostgreSQL de intercambio.
-> Verificado en vivo el **2026-06-26**. Para entregar a desarrolladores que vayan a integrar.
+> Aspecto técnico del servidor que **aloja la base de datos PostgreSQL** del hub de intercambio.
+> El servidor se usa **únicamente como base de datos** (no como hosting de aplicaciones).
+> Información para que los desarrolladores la tengan en cuenta al integrar. Verificado el 2026-06-26.
+>
+> ⚠️ Este documento **no incluye** datos de acceso (host, usuario, contraseñas, puertos de administración). Esos se entregan por canal privado a las plataformas autorizadas.
 
 ---
 
-## 1. Hardware
+## 1. Capacidad de cómputo
 
 | Componente | Valor |
 |------------|-------|
-| Tipo | **Servidor físico (bare metal)** — no virtualizado |
-| CPU | **Intel Core i3-10100F @ 3.60 GHz** — 4 núcleos / **8 hilos (vCPU)** |
-| RAM | **31 GiB** (≈ 25 GiB disponibles en reposo) |
-| Swap | **0 (sin swap)** ⚠️ recomendable añadir 8–16 GB como red de seguridad |
-| Disco sistema | **SSD** `sda` 954 GB → `/` (55G, 20% uso) y `/var` (22G, 35% uso) |
-| Disco datos | **SSD** `sda7` → `/srv` **861 GB, 530 GB libres** |
-| Disco extra | **SSD** `sdb` 238 GB |
-| **NVMe libre** | **SKHynix NVMe 238 GB — sin montar/usar** ✅ ideal para el cluster de intercambio o el WAL |
-| Estado | Carga muy baja (load avg ~0.5), uptime 3 días |
+| Tipo | Servidor físico (bare metal), no virtualizado |
+| CPU | Intel Core i3-10100F @ 3.60 GHz — 4 núcleos / **8 hilos (vCPU)** |
+| RAM | **31 GiB** (~25 GiB disponibles para el servicio de base de datos) |
+| Almacenamiento | **Todo SSD/NVMe** |
+| • Volumen de datos | SSD ~861 GB con **~530 GB libres** |
+| • NVMe dedicable | **NVMe 238 GB libre** → reservable para el cluster de intercambio (aísla la I/O) |
+| Estado | Carga baja, amplio margen libre |
 
-**Lectura:** máquina holgada. Todos los discos son SSD/NVMe (óptimo para ingesta intensiva). Hay un **NVMe de 238 GB sin usar** perfecto para aislar la I/O del nuevo cluster.
+**Conclusión:** capacidad sobrada para ingesta intensiva. Discos SSD/NVMe (óptimo para escrituras concurrentes) y un NVMe libre para dedicar al cluster de intercambio.
 
 ---
 
-## 2. Sistema Operativo
+## 2. Sistema operativo
 
 | | |
 |---|---|
-| SO | **Debian GNU/Linux 13 (trixie)** |
-| Kernel | 6.12.90+deb13.1-amd64 |
-| Acceso | SSH `servidor01@hbdesk.sytes.net` puerto **2222** (auth por contraseña; credenciales en `~/.ssh/huabodesk-credentials.env`) |
+| SO | Debian GNU/Linux 13 (trixie) |
+| Kernel | 6.12 (amd64) |
 
 ---
 
-## 3. PostgreSQL (instancia existente)
+## 3. Motor de base de datos
 
 | | |
 |---|---|
-| Versión | **PostgreSQL 17.10** (Debian 17.10-0+deb13u1) — última estable ✅ |
-| Cluster | `main` · puerto **5432** · online |
-| Data dir | `/var/lib/postgresql/17/main` |
-| SSL/TLS | **Activado** (`ssl = on`) ✅ |
-| listen_addresses | `*` (escucha en todas las interfaces) |
-| max_connections | **100** |
-| shared_buffers | 128 MB (valor por defecto, bajo) |
-| effective_cache_size | 4 GB |
-| work_mem | 4 MB |
-| maintenance_work_mem | 64 MB |
-| max_wal_size | 1 GB |
+| Motor | **PostgreSQL 17.10** (última estable) |
+| Cifrado | **TLS/SSL activado** ✅ |
+| Capacidad geoespacial | PostGIS **a instalar** (`postgresql-17-postgis-3`) — requerido para ubicaciones/búsqueda por cercanía |
+| Pooling de conexiones | PgBouncer **a instalar** — requerido para alta concurrencia |
+| Extensiones ya disponibles | `pg_trgm` (similitud de texto), `pgcrypto`, `uuid-ossp`, `pg_stat_statements` |
 
-### Bases de datos actuales (NO tocar)
-| Base | Tamaño |
-|------|--------|
-| postgres | 4.0 GB |
-| huabodesk | 7.5 MB |
-| huaboconta | 7.5 MB |
-| vmail | 7.7 MB |
-
-> La BD de intercambio será **independiente** de estas (cluster/puerto aparte).
-
-### Extensiones
-| Extensión | Estado |
-|-----------|--------|
-| `pg_stat_statements` | ✅ instalada |
-| `pg_trgm` (búsqueda por similitud) | ✅ instalada |
-| `pgcrypto` | ✅ disponible |
-| `uuid-ossp` | ✅ disponible |
-| **PostGIS** (geo) | ❌ **NO disponible — falta instalar** `postgresql-17-postgis-3` |
+> El cluster de intercambio se creará **aislado** (cluster/puerto propio, datos en NVMe dedicado), **independiente de cualquier otro servicio** del servidor: memoria, WAL, configuración y seguridad separados.
 
 ---
 
-## 4. Red / Seguridad
+## 4. Acceso y conectividad (para desarrolladores)
 
-| | |
-|---|---|
-| Firewall | **ufw activo** |
-| Puertos abiertos al exterior | **22** (SSH backup), **2222** (SSH principal), **80** (HTTP), **443** (HTTPS) |
-| PostgreSQL 5432 | Escucha en `0.0.0.0` **pero el firewall lo BLOQUEA al exterior** ✅ (solo accesible localmente) |
-| PgBouncer | ❌ **NO instalado** |
+| Modelo | Detalle |
+|--------|---------|
+| **API REST (recomendado)** | Acceso por **HTTPS**. Autenticación con **API key** (`X-Api-Key` / `Authorization: Bearer`). JSON, CORS, idempotente por `external_id`, asíncrono y bidireccional (enviar/recibir). |
+| **PostgreSQL directo** | Solo para socios autorizados y **solo lectura**. Requiere **TLS obligatorio** + lista blanca de IP. Las credenciales y el endpoint se entregan por canal privado. |
 
-**Implicación para desarrolladores:** hoy **no hay acceso directo a PostgreSQL desde internet** (correcto). El acceso externo será **vía API HTTPS (443)**. Si algún socio necesitara `psql` directo, habría que abrir un puerto dedicado con TLS + allowlist de IP.
+> El puerto de PostgreSQL **no está expuesto a internet**; el acceso directo se habilita de forma controlada solo cuando se autoriza a una plataforma.
 
 ---
 
-## 5. Software en ejecución (coexistencia)
+## 5. Dimensionamiento recomendado para el cluster de intercambio
 
-- App **HuaboDesk**: `node` (~1.4 GB) + `next-server` (~0.7 GB) corriendo.
-- Entorno gráfico (plasmashell/kwin) presente — es un equipo con escritorio.
-- Consumo total en reposo ~6 GB de 31 GB → **~25 GB libres** para el nuevo servicio.
+Afinado a las specs reales (31 GB RAM, 8 vCPU, SSD/NVMe):
 
----
+| Parámetro PostgreSQL | Valor recomendado |
+|----------------------|-------------------|
+| shared_buffers | 8 GB |
+| effective_cache_size | 18 GB |
+| work_mem | 64 MB |
+| maintenance_work_mem | 2 GB |
+| max_wal_size | 16 GB |
+| wal_compression | on |
+| synchronous_commit | off (ingesta veloz; riesgo < 1 s ante crash) |
+| max_connections | 200 (con PgBouncer delante) |
+| autovacuum | agresivo (scale_factor 0.02, 6 workers) |
 
-## 6. Veredicto de viabilidad y dimensionamiento recomendado
+**Complementos:** PgBouncer en modo `transaction` (miles de clientes → ~40 conexiones reales) y añadir swap (8–16 GB) como colchón.
 
-✅ **Totalmente viable.** El servidor tiene de sobra para un hub de intercambio con ingesta masiva. Plan afinado a estas specs (31 GB RAM, 8 vCPU, SSD/NVMe):
-
-1. **Cluster PostgreSQL 17 dedicado**, separado del contable:
-   ```bash
-   sudo pg_createcluster 17 exchange -p 5433 --start
-   ```
-   Idealmente con su **data dir en el NVMe libre** (`/mnt/nvme/exchange`) para aislar I/O.
-
-2. **Instalar lo que falta:**
-   ```bash
-   sudo apt install postgresql-17-postgis-3 pgbouncer
-   ```
-
-3. **`postgresql.conf` del cluster `exchange`** (afinado a 31 GB, **dejando RAM al cluster contable y a la app**):
-   | Parámetro | Valor |
-   |-----------|-------|
-   | shared_buffers | **8 GB** |
-   | effective_cache_size | **18 GB** |
-   | work_mem | 64 MB |
-   | maintenance_work_mem | 2 GB |
-   | max_wal_size | 16 GB |
-   | wal_compression | on |
-   | synchronous_commit | off (ingesta veloz; riesgo < 1 s ante crash) |
-   | max_connections | 200 (con PgBouncer delante) |
-   | autovacuum | agresivo (scale_factor 0.02, 6 workers) |
-
-4. **PgBouncer** en modo `transaction` (10 000 clientes → ~40 conexiones reales).
-
-5. **Añadir swap** (8–16 GB) — hoy hay 0; útil como colchón ante picos.
-
-6. **Acceso de plataformas:** API-first por **HTTPS (443)**. Postgres directo solo read-only, con TLS + allowlist, si se autoriza.
-
-### Comparativa rápida
+### Margen disponible vs. necesario
 | Recurso | Disponible | Necesario (arranque) | Margen |
 |---------|------------|----------------------|--------|
 | vCPU | 8 | 2–4 | ✅ |
 | RAM | ~25 GB libres | 8–12 GB | ✅ |
-| Disco | 530 GB (/srv) + 238 GB NVMe | decenas de GB iniciales | ✅✅ |
-| PG | 17.10 | ≥ 14 | ✅ |
-| PostGIS | ❌ falta | requerido (geo) | instalar |
-| PgBouncer | ❌ falta | requerido (escala) | instalar |
+| Disco | 530 GB SSD + 238 GB NVMe | decenas de GB iniciales | ✅✅ |
+| PostgreSQL | 17.10 | ≥ 14 | ✅ |
+| PostGIS | a instalar | requerido | pendiente |
+| PgBouncer | a instalar | requerido | pendiente |
 
 ---
 
-## 7. Datos de conexión que un desarrollador necesitará (cuando se aprovisione)
+## 6. Resumen ejecutivo
 
-```
-# Acceso vía API (modelo recomendado)
-Base URL:        https://<dominio-intercambio>/v1
-Auth:            X-Api-Key: <key>   (o Authorization: Bearer <key>)
-Formato:         JSON · CORS abierto · idempotente por external_id
-
-# Acceso directo PostgreSQL (solo socios autorizados, read-only)
-Host:            hbdesk.sytes.net
-Puerto:          5433   (cluster exchange; requiere abrir en ufw + TLS + allowlist)
-Base de datos:   exchange
-SSL:             require (obligatorio)
-Rol:             ro_<plataforma> (solo SELECT)
-Connection URI:  postgresql://ro_xxx:<pass>@hbdesk.sytes.net:5433/exchange?sslmode=require
-```
-
-> Pendiente para activar: instalar PostGIS + PgBouncer, crear cluster `exchange`, aplicar el esquema (ver `INTERCAMBIO-API-POSTGRESQL.md`), abrir puerto/allowlist si se da acceso directo.
+✅ **El servidor es idóneo** como hub de base de datos para intercambio de datos a escala: PostgreSQL 17 sobre hardware SSD/NVMe con CPU y RAM holgadas, TLS activo y espacio amplio. Lo único pendiente a nivel de software es **instalar PostGIS y PgBouncer** y **crear el cluster dedicado** de intercambio. El detalle de esquema, escala y API está en `INTERCAMBIO-API-POSTGRESQL.md`.

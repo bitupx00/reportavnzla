@@ -1,6 +1,6 @@
 # Plataforma de Intercambio de Datos — PostgreSQL dedicado (Debian 13)
 
-> **Objetivo:** Una base de datos PostgreSQL **dedicada** en el servidor Debian 13, **separada** de `huabodesk` / `huaboconta`, pensada como **hub de intercambio de datos** al que muchas plataformas autorizadas (ReportaVNZLA, venezuela-ayuda y otras) puedan **enviar y recibir millones de registros simultáneamente vía API**.
+> **Objetivo:** Una base de datos PostgreSQL **dedicada** en el servidor Debian 13, **aislada** de cualquier otro servicio del servidor, pensada como **hub de intercambio de datos** al que muchas plataformas autorizadas (ReportaVNZLA, venezuela-ayuda y otras) puedan **enviar y recibir millones de registros simultáneamente vía API**. El servidor se usa **solo como base de datos** (no para hosting de aplicaciones).
 >
 > Este documento es el **plan + la documentación completa**. No ejecuta cambios en producción: deja todo listo para aplicar cuando lo autorices.
 
@@ -14,45 +14,30 @@ Fecha: 2026-06-26 · Autor: equipo ReportaVNZLA
 
 | Pregunta | Respuesta corta |
 |----------|-----------------|
-| ¿Separado de huabodesk/huaboconta? | ✅ Sí. Recomendado: **instancia (cluster) PostgreSQL aparte en otro puerto** (p. ej. 5433), no solo otra `database` en el mismo cluster. Aísla CPU, RAM, WAL, fallos y seguridad. |
+| ¿Aislado de otros servicios del servidor? | ✅ Sí. Recomendado: **instancia (cluster) PostgreSQL aparte en otro puerto** (p. ej. 5433), no solo otra `database` en el mismo cluster. Aísla CPU, RAM, WAL, fallos y seguridad. |
 | ¿Millones de registros? | ✅ PostgreSQL maneja cientos de millones de filas sin problema con **particionado + índices correctos + autovacuum afinado**. |
 | ¿Millones **simultáneos** vía API? | ⚠️ El cuello de botella **no es PostgreSQL**, es el **número de conexiones**. Postgres NO debe recibir miles de conexiones directas. Se resuelve con **PgBouncer** (pooling) + **ingesta por lotes/COPY** + **cola de escritura**. |
 | ¿Acceso directo psql de plataformas externas? | ⚠️ Posible pero **NO recomendado** como modelo principal. Mejor: **todas pasan por nuestra API** (un solo punto, con rate-limit y auth). Acceso `psql` directo solo para socios muy confiables, con rol de **solo-lectura** y réplica. |
-| ¿Hardware suficiente? | ❓ **Pendiente de verificar** (ver §1). Para arrancar bien: ≥ 4 vCPU, ≥ 8–16 GB RAM, disco **SSD/NVMe**, y separar el WAL si el disco es lento. |
+| ¿Hardware suficiente? | ✅ **Sí** (verificado, ver §1): 8 vCPU, 31 GiB RAM, todo SSD/NVMe con un NVMe libre dedicable. Holgado para arrancar. |
 
 **Decisión arquitectónica recomendada:** *API-first*. Las plataformas hablan con **nuestra API REST** (asíncrona, idempotente, con `external_id`), y la API escribe a Postgres mediante **lotes** sobre tablas **particionadas**. PostgreSQL queda detrás de **PgBouncer** y solo expone acceso directo (read-only, SSL, IP allowlist) a réplicas para socios selectos.
 
 ---
 
-## 1. Verificación de viabilidad en el servidor (ejecutar primero)
+## 1. Capacidad del servidor (verificada)
 
-> ⚠️ Al momento de escribir esto, el acceso SSH automatizado falló (la clave y la contraseña de `~/.ssh/huabodesk-credentials.env` fueron **rechazadas** — probablemente **rotadas en la migración a Debian 13**). Antes de aplicar nada hay que **refrescar credenciales** o ejecutar tú mismo el chequeo.
+Las especificaciones reales del servidor están en **`FICHA-TECNICA-SERVIDOR.md`**. Resumen relevante para el dimensionamiento:
 
-Pega esto en tu terminal con `!` (o por SSH a `servidor01@hbdesk.sytes.net:2222`) y compárteme la salida — con eso cierro el dimensionamiento exacto:
+| Recurso | Valor | Implicación |
+|---------|-------|-------------|
+| CPU | 8 vCPU (Intel i3-10100F @ 3.6 GHz) | Suficiente (2–4 necesarios) |
+| RAM | 31 GiB (~25 GiB libres) | `shared_buffers ≈ 8 GB` |
+| Disco | SSD ~530 GB libres + **NVMe 238 GB libre** | NVMe dedicable al cluster de intercambio |
+| PostgreSQL | **17.10** + TLS activo | Óptimo (≥14 recomendado) |
+| PostGIS | **a instalar** | Requerido para geo |
+| PgBouncer | **a instalar** | Requerido para concurrencia |
 
-```bash
-# ── Recursos del servidor ──
-nproc                                   # vCPUs
-free -h                                 # RAM total/libre
-df -h / /srv                            # disco y espacio libre
-lsblk -d -o NAME,ROTA,SIZE,MODEL        # ROTA=0 => SSD/NVMe (bueno); ROTA=1 => HDD (malo para WAL)
-cat /etc/os-release | grep PRETTY
-
-# ── PostgreSQL actual ──
-sudo -u postgres psql -c "SELECT version();"
-sudo -u postgres psql -c "SELECT datname, pg_size_pretty(pg_database_size(datname)) FROM pg_database ORDER BY 2 DESC;"
-sudo -u postgres psql -c "SHOW shared_buffers; SHOW max_connections; SHOW work_mem; SHOW max_wal_size;"
-pg_lsclusters                            # clusters/puertos existentes (Debian)
-# ¿PostGIS disponible?
-sudo -u postgres psql -c "SELECT name,default_version,installed_version FROM pg_available_extensions WHERE name IN ('postgis','pg_trgm','pgcrypto','pg_stat_statements');"
-```
-
-**Cómo interpretar el resultado (criterios de viabilidad):**
-
-- **RAM:** regla práctica `shared_buffers ≈ 25%` de la RAM. Con 16 GB → `shared_buffers=4GB`. Si el server tiene 4 GB y ya corre huabodesk/huaboconta, **conviene RAM extra** o un servidor aparte.
-- **Disco:** para ingesta intensa, **NVMe/SSD obligatorio**. HDD = el WAL se vuelve el cuello de botella. Ideal: WAL en disco separado.
-- **Versión PG:** ≥ 14 (ideal **16/17**) para mejor particionado, `MERGE`, y rendimiento de `COPY`.
-- **PostGIS:** si vas a guardar ubicaciones con búsqueda por cercanía (como el template venezuela-ayuda), necesitas la extensión `postgis`.
+**Criterios aplicados:** `shared_buffers ≈ 25%` de la RAM; SSD/NVMe obligatorio para ingesta intensa (✅ todo SSD); WAL ideal en disco separado (✅ NVMe libre); PG ≥ 14 para mejor particionado y `COPY` (✅ 17.10); PostGIS para ubicaciones con búsqueda por cercanía (pendiente de instalar).
 
 ---
 
@@ -81,22 +66,22 @@ sudo -u postgres psql -c "SELECT name,default_version,installed_version FROM pg_
    │  puerto 5433 (aparte)   │   └───────────────────────┘
    │  tablas particionadas   │
    └───────────────────────┘
-        (separado de huabodesk/huaboconta en 5432)
+        (cluster de intercambio aislado del resto del servidor)
 ```
 
 ### 2.1 ¿Otra database o otra instancia?
 
 | Opción | Aislamiento | Complejidad | Recomendación |
 |--------|-------------|-------------|----------------|
-| **A. Otra `DATABASE` en el cluster 5432 existente** | Bajo (comparte RAM/WAL/CPU con huabodesk) | Mínima | Solo para PoC/pruebas |
+| **A. Otra `DATABASE` en el cluster existente** | Bajo (comparte RAM/WAL/CPU con lo ya instalado) | Mínima | Solo para PoC/pruebas |
 | **B. Otro CLUSTER PostgreSQL (puerto 5433)** en el mismo server | Medio-alto (config, memoria y WAL propios; un fallo no tumba al otro) | Media | ✅ **Recomendado** para empezar |
 | **C. Servidor/VM dedicado** | Máximo | Alta | Ideal a futuro / si el volumen crece |
 
 En Debian se crea un cluster aparte fácilmente:
 ```bash
-sudo pg_createcluster 16 exchange -p 5433 --start
+sudo pg_createcluster 17 exchange -p 5433 --start
 ```
-Así `exchange` tiene su `postgresql.conf`, su `pg_hba.conf`, su memoria y su WAL, **totalmente separado** de los datos contables.
+Así `exchange` tiene su `postgresql.conf`, su `pg_hba.conf`, su memoria y su WAL, **totalmente separado** del resto del servidor.
 
 ---
 
@@ -390,7 +375,7 @@ REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA exchange FROM PUBLIC;
 - **Rate-limit por key** (tabla `api_keys.rate_limit_min`).
 - **Auditoría** de cada ingest/lectura (`audit_log`).
 - **Backups**: `pg_dump` diario + **WAL archiving / PITR** (recuperación a un punto en el tiempo).
-- **Aislado** de huabodesk/huaboconta: cluster, puerto, rol y `pg_hba.conf` propios.
+- **Aislado** del resto del servidor: cluster, puerto, rol y `pg_hba.conf` propios.
 
 ---
 
@@ -527,7 +512,7 @@ Un job en cada plataforma, cada N minutos:
 
 ## 7. Plan de implementación (paso a paso, cuando autorices)
 
-> Nada de esto se ejecuta todavía. Es la receta lista para aplicar tras refrescar credenciales SSH.
+> Nada de esto se ejecuta todavía. Es la receta lista para aplicar cuando se autorice.
 
 **Fase 0 — Verificación** (§1): specs del server + PostGIS disponible.
 
@@ -559,7 +544,7 @@ sudo -u postgres psql -p 5433 -c "CREATE DATABASE exchange;"
 
 | Riesgo | Mitigación |
 |--------|------------|
-| Saturar el server (compite con huaboconta) | Cluster/puerto aparte; límites de memoria; idealmente servidor dedicado a futuro |
+| Saturar el server (competencia de recursos con otros servicios) | Cluster/puerto aparte; límites de memoria; idealmente servidor dedicado a futuro |
 | Miles de conexiones tumban Postgres | **PgBouncer** + `max_connections` bajo |
 | Picos de ingesta | Staging `UNLOGGED` + `COPY` + flush por lotes + cola |
 | Duplicados entre plataformas | `external_id` único + `dedup_key` + `ON CONFLICT DO NOTHING` |
@@ -571,7 +556,7 @@ sudo -u postgres psql -p 5433 -c "CREATE DATABASE exchange;"
 
 ## 9. Qué necesito de ti para continuar
 
-1. **Refrescar el acceso SSH** a Debian 13 (la clave/clave de `credentials.env` fueron rechazadas — ¿se rotaron en la migración?). O ejecuta tú el bloque de §1 y compárteme la salida.
+1. **Confirmar la ventana** para aprovisionar (instalar PostGIS/PgBouncer + crear el cluster) sin afectar otros servicios.
 2. Confirmar el **modelo de aislamiento** (recomiendo **B: cluster aparte en 5433**).
 3. Confirmar el **modelo de acceso** (recomiendo **API-first** para todas; psql directo solo read-only para socios selectos).
 4. Con las specs reales, **afino los números** (`shared_buffers`, particiones, pool) y preparo las **migraciones SQL definitivas** + el servicio de API.
