@@ -518,7 +518,7 @@ Un job en cada plataforma, cada N minutos:
 
 **Fase 1 — Cluster dedicado**
 ```bash
-sudo pg_createcluster 16 exchange -p 5433 --start
+sudo pg_createcluster 17 exchange -p 5433 --start
 sudo -u postgres psql -p 5433 -c "CREATE DATABASE exchange;"
 ```
 
