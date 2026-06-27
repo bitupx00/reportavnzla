@@ -77,19 +77,27 @@ distancia **coseno**.
 
 ---
 
-## Bandas de confianza y umbral
+## Umbral (piso 0.51) y bandas
 
 El score es la **similitud coseno** entre la cara de la consulta y la cara
-candidata (rango aproximado 0–1). El **umbral de referencia es `0.35`**.
+candidata (rango aproximado 0–1).
+
+**Piso de cotejo = `0.51`.** `/v1/check-duplicate` y `/v1/search` **solo
+devuelven coincidencias con `score >= 0.51`** ("trae solo lo más cercano"). Lo
+que queda por debajo no se devuelve. Puedes ajustar el piso por petición con el
+parámetro **`?min_score=`** (0–1); cada respuesta incluye el `min_score` aplicado.
 
 | Banda | Rango de score | Interpretación |
 |---|---|---|
 | `alta` | `score >= 0.50` | Muy probablemente la misma persona |
-| `media` | `0.35 <= score < 0.50` | Posible; requiere mirada humana |
-| `baja` | `score < 0.35` | Poco probable (por debajo del umbral) |
+| `media` | `min_score <= score < 0.50` | Solo aparece si bajas `min_score` por debajo de 0.50 |
 
-Cada candidato incluye su campo `band` con uno de esos tres valores. Decide
-siempre con criterio humano; las bandas son una ayuda, no un veredicto.
+Con el piso por defecto (0.51) **todas las coincidencias devueltas son banda
+`alta`**. No se devuelve nada por debajo del piso (no hay banda "baja"). Las
+bandas son una ayuda; decide siempre con criterio humano.
+
+> `threshold` (0.35) que aparece en algunas respuestas es solo la referencia
+> histórica de la banda "media"; el que gobierna qué se devuelve es `min_score`.
 
 ---
 
@@ -145,7 +153,14 @@ curl -X POST https://fr-api.reportavnzla.com:8443/v1/check-duplicate \
   "ok": true,
   "model": "buffalo_l",
   "threshold": 0.35,
-  "faces_detected": 1,
+  "min_score": 0.51,
+  "faces_detected": 2,
+  "faces": [
+    { "bbox": [67,117,132,215], "matched": true,  "color": "green",
+      "best_score": 0.97, "band": "alta", "candidates": [ /* … */ ] },
+    { "bbox": [240,110,300,205], "matched": false, "color": "yellow",
+      "best_score": 0.0, "band": null, "candidates": [] }
+  ],
   "possible_duplicate": true,
   "best_score": 0.97,
   "message": "Creemos que esta persona ya podría estar registrada.",
@@ -171,16 +186,22 @@ curl -X POST https://fr-api.reportavnzla.com:8443/v1/check-duplicate \
 |---|---|---|
 | `ok` | bool | Operación correcta |
 | `model` | string | Modelo facial |
-| `threshold` | float | Umbral de referencia (0.35) |
+| `min_score` | float | Piso aplicado (default 0.51). Solo se devuelven matches `>= min_score` |
+| `threshold` | float | Referencia histórica de banda (0.35); NO gobierna qué se devuelve |
 | `faces_detected` | int | Caras detectadas en la imagen subida |
-| `possible_duplicate` | bool | `true` si hay >=1 candidato con `score >= threshold` |
+| `faces` | array | **Una entrada por rostro** (multi-persona): `bbox` `[x1,y1,x2,y2]`, `matched` (bool), `color` (`green`=coincide / `yellow`=no), `best_score`, `band`, `candidates`. Para **dibujar recuadros**. |
+| `possible_duplicate` | bool | `true` si hay >=1 candidato con `score >= min_score` (0.51) |
 | `best_score` | float \| null | Mejor score encontrado (o `null` si no hubo candidatos) |
 | `message` | string | Mensaje listo para mostrar al usuario |
-| `candidates` | array | Hasta 5 candidatos, ordenados por `score` desc |
+| `candidates` | array | Coincidencias agregadas de todos los rostros, hasta 5, `score` desc |
 
 Campos de cada **candidate**: `record_id`, `group_id`, `person_name`, `age`,
 `last_seen_location`, `contact_phone`, `image_url`, `source`, `score` (float),
-`band` (string: `alta`/`media`/`baja`), `group_size` (int).
+`band` (string), `group_size` (int).
+
+> **Multi-rostro:** si la imagen tiene varias personas, se coteja cada rostro y
+> el arreglo `faces` te dice cuál coincide (verde) y cuál no (amarillo), con su
+> `bbox` en píxeles de la imagen enviada — listo para pintar los recuadros.
 
 **Errores:**
 

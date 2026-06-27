@@ -207,8 +207,20 @@ const dups = await (await fetch(
 | GET | `/health` · `/openapi.json` | — | Públicas |
 
 `source` es **salida** cuando comparas una foto (te dice de qué base viene cada
-match) y **entrada** cuando depuras/concilias bases. `band`: `alta`≥0.50,
-`media` 0.35–0.50, `baja`<0.35; umbral del cotejo 0.35.
+match) y **entrada** cuando depuras/concilias bases.
+
+## Piso de score 0.51 y multi-rostro (recuadros)
+
+- **Piso 0.51:** `/v1/check-duplicate` y `/v1/search` solo devuelven matches con
+  `score >= 0.51` ("trae solo lo más cercano"). Ajustable por petición con
+  `?min_score=`. Cada respuesta trae el `min_score` aplicado. `band`: `alta`≥0.50
+  (con el piso 0.51, en la práctica todo lo devuelto es `alta`).
+- **Multi-rostro:** si la imagen tiene varias personas, la respuesta incluye un
+  arreglo `faces` con una entrada por rostro: `bbox` `[x1,y1,x2,y2]` (px de la
+  imagen enviada), `matched` (bool), `color` (`green`=coincide / `yellow`=no),
+  `best_score`, `candidates`. Úsalo para **dibujar recuadros** verde/amarillo.
+  El indexado (`/v1/index`) también guarda **todas** las caras de una foto grupal,
+  así una foto con varias personas es buscable por cada una.
 
 ## 8) Checklist (valida al terminar)
 
