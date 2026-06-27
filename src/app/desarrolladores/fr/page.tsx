@@ -24,7 +24,7 @@ const ENDPOINTS: Endpoint[] = [
   { method: 'POST', path: '/v1/search', auth: true, params: 'file', desc: 'Foto → personas más parecidas (top-10) con su score y su source. Busca en TODAS las bases.' },
   { method: 'POST', path: '/v1/index', auth: true, params: 'external_id, file|image_url, person_name?, last_seen_location?, age?, contact_phone?, source?', desc: 'Sube/indexa UN registro de tu base. Idempotente por external_id.' },
   { method: 'POST', path: '/v1/index/commit', auth: true, desc: 'Cierre de lote (no-op con el backend actual; devuelve el total).' },
-  { method: 'GET', path: '/v1/duplicates', auth: true, params: 'source?, min_score=0.6, limit=500', desc: 'Cruza UNA base contra sí misma → pares duplicados. Sin source = tu propia base.' },
+  { method: 'GET', path: '/v1/duplicates', auth: true, params: 'source?, min_score=0.6, limit=500', desc: 'Cruza UNA base contra sí misma → pares duplicados. source = el mismo con que indexaste (default = etiqueta de tu key).' },
   { method: 'GET', path: '/v1/reconcile', auth: true, params: 'min_score=0.55, limit=800, sources?', desc: 'Misma persona entre bases DISTINTAS → grupos con las imágenes de cada base.' },
   { method: 'GET', path: '/v1/groups', auth: true, params: 'limit=20, offset=0, q?', desc: 'Lista de grupos/clusters de identidad.' },
   { method: 'GET', path: '/v1/groups/{id}/cluster', auth: true, desc: 'Miembros de un grupo/cluster concreto.' },
@@ -78,8 +78,9 @@ curl -X POST "${FR_BASE}/v1/index" \\
 # -> {"ok":true,"indexed":true,"record_id":"tu-fuente:ID_EN_TU_BD"}`
 
 const CURL_DUPLICATES = `# Cruza TU base por rostro y lista pares duplicados.
-# Omite "source": usa por defecto la base de tu propia API key.
-curl "${FR_BASE}/v1/duplicates?min_score=0.6&limit=500" \\
+# "source" debe ser EL MISMO con que indexaste (paso 1). Por defecto es la
+# etiqueta de tu API key; si indexaste con otro source, pásalo igual aquí.
+curl "${FR_BASE}/v1/duplicates?source=TU_FUENTE&min_score=0.6&limit=500" \\
   -H "X-API-Key: TU_API_KEY"`
 
 const RESP_DUPLICATES = `{
@@ -273,7 +274,8 @@ export default function FRDevelopersPage() {
           <h3 className="font-semibold text-gray-800 mb-2 mt-8">Paso 2 — Pedir los duplicados</h3>
           <p className="text-gray-600 text-sm mb-3">
             <strong>Opción rápida:</strong> <code className="text-red-700">/v1/duplicates</code> te
-            devuelve los pares (con los dos ids de tu BD, el score y las dos fotos para revisar).
+            devuelve los pares (con los dos ids de tu BD, el score y las dos fotos para revisar). Pasa
+            el mismo <code className="text-red-700">source</code> con que indexaste en el paso 1.
           </p>
           <CodeBlock>{CURL_DUPLICATES}</CodeBlock>
           <CodeBlock>{RESP_DUPLICATES}</CodeBlock>
