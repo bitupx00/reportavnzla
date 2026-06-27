@@ -19,7 +19,7 @@ export default function DevelopersPage() {
             Documentación de la API pública de ReportaVNZLA. Conecta tu plataforma 
             y ayuda a cruzar información para encontrar personas desaparecidas.
           </p>
-          <div className="flex gap-4 mt-6">
+          <div className="flex flex-wrap gap-4 mt-6">
             <a href="#endpoints" className="bg-white text-blue-900 px-6 py-2 rounded-lg font-semibold hover:bg-blue-50 transition">
               Ver Endpoints
             </a>
@@ -28,6 +28,9 @@ export default function DevelopersPage() {
             </a>
             <a href="#integrar" className="border-2 border-white text-white px-6 py-2 rounded-lg font-semibold hover:bg-white/10 transition">
               ¿Cómo Integrar?
+            </a>
+            <a href="/desarrolladores/fr" className="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700 transition">
+              🧑‍🦱 API de Reconocimiento Facial
             </a>
           </div>
         </div>

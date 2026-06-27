@@ -3,13 +3,14 @@
 
 import { useState } from 'react'
 
-type Mode = 'registro' | 'busqueda' | 'duplicados' | 'ingesta'
+type Mode = 'registro' | 'busqueda' | 'duplicados' | 'ingesta' | 'conciliacion'
 
 const TABS: { id: Mode; label: string; desc: string }[] = [
   { id: 'registro', label: '1 · Registro', desc: 'Sube una foto → ¿ya está registrada?' },
   { id: 'busqueda', label: '2 · Búsqueda', desc: 'Sube una foto → personas parecidas' },
   { id: 'duplicados', label: '3 · Duplicados', desc: 'Cruza la base y lista duplicados' },
   { id: 'ingesta', label: '4 · Ingesta', desc: 'Indexa un registro nuevo' },
+  { id: 'conciliacion', label: '5 · Conciliación', desc: 'Misma persona en varias bases' },
 ]
 
 function pct(s: number) { return Math.round((s || 0) * 100) }
@@ -21,7 +22,7 @@ export default function FRTestPage() {
       <h1 className="text-2xl font-bold text-gray-900">Reconocimiento facial — pruebas</h1>
       <p className="mt-1 text-sm text-gray-500">Demo de los 4 modos del FR-API (asistivo · requiere verificación humana).</p>
 
-      <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setMode(t.id)}
             className={`rounded-xl border px-3 py-2 text-left transition ${mode === t.id ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
@@ -36,6 +37,7 @@ export default function FRTestPage() {
         {mode === 'busqueda' && <FotoMode endpoint="/api/fr/search" cta="Buscar parecidos" kind="search" />}
         {mode === 'duplicados' && <Duplicados />}
         {mode === 'ingesta' && <Ingesta />}
+        {mode === 'conciliacion' && <Conciliacion />}
       </div>
     </main>
   )
@@ -148,6 +150,65 @@ function Duplicados() {
                 <span className="text-sm text-gray-700">{p.a_name || '—'} <span className="text-gray-400">↔</span> {p.b_name || '—'}</span>
                 {p.b_image && <img src={p.b_image} alt="" className="h-12 w-12 rounded-lg object-cover" />}
                 <span className="ml-auto rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{pct(p.score)}%</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  )
+}
+
+/* Modo 5: conciliación entre bases distintas (misma persona en varias plataformas) */
+function Conciliacion() {
+  const [min, setMin] = useState('0.55')
+  const [loading, setLoading] = useState(false)
+  const [res, setRes] = useState<any>(null)
+  const [err, setErr] = useState<string | null>(null)
+  async function run() {
+    setLoading(true); setErr(null); setRes(null)
+    try {
+      const r = await fetch(`/api/fr/reconcile?min_score=${min}&limit=800`)
+      const d = await r.json()
+      if (!r.ok || d.ok === false) setErr(d.error || 'Error.'); else setRes(d)
+    } catch { setErr('No se pudo conectar.') } finally { setLoading(false) }
+  }
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-white p-5">
+      <p className="text-sm text-gray-600">Encuentra a la <b>misma persona</b> reportada en bases distintas (p. ej. Azure ↔ reportavnzla) y trae <b>sus imágenes de cada base</b>.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <label className="text-sm text-gray-600">Similitud mínima
+          <input type="number" step="0.05" min="0.3" max="1" value={min} onChange={(e) => setMin(e.target.value)}
+            className="ml-2 w-20 rounded-lg border border-gray-300 px-2 py-1 text-sm" />
+        </label>
+        <button onClick={run} disabled={loading}
+          className="rounded-xl bg-red-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">
+          {loading ? 'Conciliando bases…' : 'Conciliar bases'}
+        </button>
+      </div>
+      {err && <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{err}</p>}
+      {res && (
+        <>
+          <p className="mt-4 text-sm text-gray-600">Revisados <b>{res.checked}</b> · identidades conciliadas (≥2 bases): <b>{res.groups?.length || 0}</b></p>
+          <ul className="mt-3 space-y-3">
+            {(res.groups || []).map((g: any, i: number) => (
+              <li key={i} className="rounded-xl border border-gray-200 p-3">
+                <div className="mb-2 flex items-center gap-2 text-xs">
+                  {(g.sources || []).map((s: string) => <span key={s} className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-600">{s}</span>)}
+                  <span className="ml-auto rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-700">{pct(g.score)}%</span>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {(g.records || []).map((r: any, j: number) => (
+                    <div key={j} className="w-32">
+                      {r.image_url
+                        ? <img src={r.image_url} alt="" className="h-32 w-32 rounded-lg object-cover" />
+                        : <div className="flex h-32 w-32 items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-400">sin imagen</div>}
+                      <div className="mt-1 truncate text-xs font-medium text-gray-900" title={r.person_name || ''}>{r.person_name || 'Sin nombre'}</div>
+                      <div className="truncate text-[11px] text-blue-600">{r.source}</div>
+                      {r.last_seen_location && <div className="truncate text-[11px] text-gray-500">{r.last_seen_location}</div>}
+                    </div>
+                  ))}
+                </div>
               </li>
             ))}
           </ul>
