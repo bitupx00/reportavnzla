@@ -28,12 +28,19 @@ export async function POST(req: Request) {
   }
   const fd = new FormData()
   fd.append('file', file, 'foto.jpg')
+  // Reenvía ?min_score= si el cliente lo manda (ajusta el piso por petición).
+  const min = new URL(req.url).searchParams.get('min_score')
+  const qs = min ? `?min_score=${encodeURIComponent(min)}` : ''
   try {
-    const r = await fetch(`${FR_URL}/v1/check-duplicate`, {
+    const r = await fetch(`${FR_URL}/v1/check-duplicate${qs}`, {
       method: 'POST',
       headers: { 'X-API-Key': FR_KEY },
       body: fd,
     })
+    if (r.status === 401 || r.status === 403) {
+      // Diagnóstico server-side: la causa #1 es una FR_API_KEY truncada/incorrecta.
+      console.error(`[FR] auth rechazada (${r.status}). Revisa FR_API_KEY en el entorno: debe tener 48 caracteres (recibidos ${FR_KEY.length}).`)
+    }
     const body = await r.text()
     return new NextResponse(body, { status: r.status, headers: { 'content-type': 'application/json' } })
   } catch {

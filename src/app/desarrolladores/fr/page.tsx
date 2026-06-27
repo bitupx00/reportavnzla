@@ -20,6 +20,7 @@ type Endpoint = {
 const ENDPOINTS: Endpoint[] = [
   { method: 'GET', path: '/health', auth: false, desc: 'Estado del servicio y de la colección vectorial.' },
   { method: 'GET', path: '/openapi.json', auth: false, desc: 'Esquema OpenAPI público (también en /api/fr/openapi).' },
+  { method: 'GET', path: '/v1/whoami', auth: true, desc: 'Autodiagnóstico: valida tu key y devuelve tu source, cuántos registros tienes indexados y el min_score. Empieza por aquí.' },
   { method: 'POST', path: '/v1/check-duplicate', auth: true, params: 'file', desc: 'Foto → ¿ya hay una persona registrada con ese rostro? (anti-duplicado al registrar).' },
   { method: 'POST', path: '/v1/search', auth: true, params: 'file', desc: 'Foto → personas más parecidas (top-10) con su score y su source. Busca en TODAS las bases.' },
   { method: 'POST', path: '/v1/index', auth: true, params: 'external_id, file|image_url, person_name?, last_seen_location?, age?, contact_phone?, source?', desc: 'Sube/indexa UN registro de tu base. Idempotente por external_id.' },
@@ -53,6 +54,12 @@ function H2({ children, id }: { children: React.ReactNode; id?: string }) {
     </h2>
   )
 }
+
+const CURL_WHOAMI = `# Paso 0: ¿tu key sirve? ¿qué source y cuántos indexados tienes?
+curl "${FR_BASE}/v1/whoami" -H "X-API-Key: TU_API_KEY"
+# 401 = key inválida/truncada (deben ser 48 caracteres)
+# -> { "key_label":"…", "source_default":"…", "indexed_my_source":0,
+#      "min_score_default":0.51, "reference_threshold":0.35 }`
 
 const CURL_CHECK = `curl -X POST "${FR_BASE}/v1/check-duplicate" \\
   -H "X-API-Key: TU_API_KEY" \\
@@ -237,6 +244,40 @@ export default function FRDevelopersPage() {
           <CodeBlock>{`X-API-Key: TU_API_KEY`}</CodeBlock>
         </section>
 
+        {/* Primer paso: validar config */}
+        <section className="bg-blue-50 rounded-xl p-8 border border-blue-200">
+          <H2>Paso 0 — Valida tu configuración (evita el 90% de los problemas)</H2>
+          <p className="text-gray-700 mb-4">
+            Antes de integrar, confirma que tu <code className="text-red-700">.env</code> está bien.
+            Descarga <strong>fr-doctor</strong> (script sin dependencias) y córrelo en la carpeta de
+            tu <code className="text-red-700">.env</code> — te dice en segundos si la key autentica,
+            si tu <code className="text-red-700">FR_SOURCE</code> coincide y si ya indexaste datos:
+          </p>
+          <div className="flex flex-wrap gap-3 mb-5">
+            <a href="/fr-doctor.py" download className="bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold hover:bg-blue-800 transition">
+              ⬇ Descargar fr-doctor.py
+            </a>
+          </div>
+          <CodeBlock>{`python fr-doctor.py            # lee tu .env y diagnostica`}</CodeBlock>
+          <p className="text-gray-600 text-sm mt-4 mb-2">O a mano, con <code className="text-red-700">/v1/whoami</code>:</p>
+          <CodeBlock>{CURL_WHOAMI}</CodeBlock>
+        </section>
+
+        {/* El FR no lee tu BD */}
+        <section className="bg-amber-50 rounded-xl p-8 border border-amber-200">
+          <H2>Importante: el FR-API NO consulta tu base de datos</H2>
+          <p className="text-gray-700">
+            El FR-API es un <strong>índice vectorial centralizado</strong>. <strong>No</strong> se
+            conecta a tu Neon/Supabase/Postgres. Solo encuentra caras que <strong>tú</strong> hayas
+            subido con <code className="text-red-700">POST /v1/index</code>.
+          </p>
+          <p className="text-gray-700 mt-3">
+            Flujo: <code className="text-red-700">tu BD → /v1/index → índice del FR-API → /v1/check-duplicate busca ahí</code>.
+            Si nunca indexaste, <code className="text-red-700">check-duplicate</code> siempre dirá
+            “sin duplicado” (no hay con qué comparar). Haz el <a href="#cruzar" className="text-red-700 underline">backfill</a> primero.
+          </p>
+        </section>
+
         {/* source: entrada vs salida */}
         <section className="bg-amber-50 rounded-xl p-8 border border-amber-200">
           <H2>El parámetro <code className="text-red-700">source</code>: entrada vs. salida</H2>
@@ -405,6 +446,25 @@ export default function FRDevelopersPage() {
           </p>
         </section>
 
+        {/* Solución de problemas */}
+        <section>
+          <H2>Solución de problemas</H2>
+          <div className="space-y-3">
+            {[
+              ['Registro / búsqueda sin error ni respuesta', 'Casi siempre la API key está mal copiada (truncada). Corre fr-doctor o GET /v1/whoami: un 401 confirma la key. Las claves son de 48 caracteres. Los proxies no rompen el registro, así que un 401 se ve como “sin coincidencias”.'],
+              ['Siempre da possible_duplicate:false / 0 resultados', 'Probablemente no has indexado tu base. GET /v1/whoami → indexed_my_source. Si es 0, haz el backfill con POST /v1/index. El FR-API no lee tu BD.'],
+              ['"Me sigue diciendo 0.35"', 'Es el campo threshold (referencia histórica) — NO controla nada. El piso real es min_score (0.51). Para cambiarlo, pasa ?min_score= en la petición; FR_MIN_SCORE en tu .env no aplica por sí solo.'],
+              ['/v1/duplicates devuelve vacío', 'Tu source no coincide con el de indexación. Usa el mismo source con que indexaste (= source_default de /v1/whoami = la etiqueta de tu key), o pásalo explícito con ?source=.'],
+              ['HTTP 429', 'Límite de 120 peticiones/min por clave. En backfills, separa ~550 ms entre llamadas.'],
+            ].map(([q, a]) => (
+              <details key={q} className="rounded-xl border bg-white p-4">
+                <summary className="cursor-pointer font-semibold text-gray-800">{q}</summary>
+                <p className="mt-2 text-sm text-gray-600">{a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
         {/* Descargas */}
         <section className="bg-gradient-to-r from-red-50 to-rose-50 rounded-xl p-8 border">
           <H2>Documentación descargable</H2>
@@ -418,6 +478,9 @@ export default function FRDevelopersPage() {
           <div className="flex flex-wrap gap-4">
             <a href="/fr-api-agent-guide.md" download className="bg-red-700 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-800 transition">
               ⬇ Guía para agentes de IA (Markdown)
+            </a>
+            <a href="/fr-doctor.py" download className="border-2 border-red-700 text-red-700 px-6 py-2 rounded-lg font-semibold hover:bg-red-50 transition">
+              ⬇ fr-doctor.py (diagnóstico)
             </a>
             <a href="/api/fr/openapi" download className="border-2 border-red-700 text-red-700 px-6 py-2 rounded-lg font-semibold hover:bg-red-50 transition">
               ⬇ OpenAPI (JSON)
