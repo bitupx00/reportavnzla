@@ -6,7 +6,7 @@ export const metadata: Metadata = {
     'Documentación de la API de reconocimiento facial (FR-API) de ReportaVNZLA: cotejo de rostros, búsqueda de parecidos, deduplicación y conciliación entre bases. Descarga el esquema OpenAPI y la guía.',
 }
 
-const FR_BASE = 'https://reportavnzla.com/fr-api'
+const FR_BASE = 'https://fr-api.reportavnzla.com:8443'
 
 type Endpoint = {
   method: string

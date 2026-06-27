@@ -19,11 +19,16 @@ terremoto de Venezuela. Permite a cualquier plataforma autorizada:
 ## Base URL
 
 ```
-https://reportavnzla.com/fr-api
+https://fr-api.reportavnzla.com:8443
 ```
 
-(HTTP por ahora; TLS en camino.) Docs interactivas: `GET /docs` (Swagger),
-`GET /redoc`. El esquema OpenAPI declara el candado de seguridad por API key.
+TLS con certificado válido (Let's Encrypt). Sin límite práctico de tamaño de
+imagen (admite fotos de varias decenas de MB). Docs interactivas: `GET /docs`
+(Swagger), `GET /redoc`. El esquema OpenAPI declara el candado por API key.
+
+> **Alias** (opcional, para cargas pequeñas): `https://reportavnzla.com/fr-api`
+> — mismo API, pero pasa por el gateway y tiene **límite de 4.5 MB por archivo**.
+> Para fotos grandes usa siempre la Base URL principal de arriba.
 
 ---
 
@@ -38,7 +43,7 @@ Todas las rutas `/v1/*` requieren API key. `/health` es público.
 - Clave inválida o ausente: `401 Unauthorized`.
 
 ```bash
-curl https://reportavnzla.com/fr-api/v1/search \
+curl https://fr-api.reportavnzla.com:8443/v1/search \
   -H "X-API-Key: TU_CLAVE" \
   -F "file=@foto.jpg"
 ```
@@ -93,7 +98,7 @@ siempre con criterio humano; las bandas son una ayuda, no un veredicto.
 Estado del servicio. **No requiere API key.**
 
 ```bash
-curl https://reportavnzla.com/fr-api/health
+curl https://fr-api.reportavnzla.com:8443/health
 ```
 
 **Respuesta `200`:**
@@ -128,7 +133,7 @@ trae su `source` para que sepas de qué plataforma viene la coincidencia.
 | `file` | archivo | sí | Imagen JPG, PNG, WEBP o HEIC |
 
 ```bash
-curl -X POST https://reportavnzla.com/fr-api/v1/check-duplicate \
+curl -X POST https://fr-api.reportavnzla.com:8443/v1/check-duplicate \
   -H "X-API-Key: TU_CLAVE" \
   -F "file=@foto.jpg"
 ```
@@ -197,7 +202,7 @@ Búsqueda 1:N. Foto → **top-10 posibles coincidencias** colapsadas por persona
 | `file` | archivo | sí | Imagen JPG, PNG, WEBP o HEIC |
 
 ```bash
-curl -X POST https://reportavnzla.com/fr-api/v1/search \
+curl -X POST https://fr-api.reportavnzla.com:8443/v1/search \
   -H "X-API-Key: TU_CLAVE" \
   -F "file=@foto.jpg"
 ```
@@ -273,7 +278,7 @@ es `"<source>:<external_id>"`. Cada registro de plataforma es su propio grupo
 
 ```bash
 # Por URL de imagen
-curl -X POST https://reportavnzla.com/fr-api/v1/index \
+curl -X POST https://fr-api.reportavnzla.com:8443/v1/index \
   -H "X-API-Key: TU_CLAVE" \
   -F "external_id=123" \
   -F "person_name=Katherine Mendoza" \
@@ -284,7 +289,7 @@ curl -X POST https://reportavnzla.com/fr-api/v1/index \
   -F "image_url=https://tu-cdn/fotos/123.jpg"
 
 # Por archivo subido
-curl -X POST https://reportavnzla.com/fr-api/v1/index \
+curl -X POST https://fr-api.reportavnzla.com:8443/v1/index \
   -H "X-API-Key: TU_CLAVE" \
   -F "external_id=123" \
   -F "person_name=Katherine Mendoza" \
@@ -319,7 +324,7 @@ que no necesitas llamarlo, pero existe para flujos de backfill que esperan un
 commit explícito al final.
 
 ```bash
-curl -X POST https://reportavnzla.com/fr-api/v1/index/commit \
+curl -X POST https://fr-api.reportavnzla.com:8443/v1/index/commit \
   -H "X-API-Key: TU_CLAVE"
 ```
 
@@ -350,7 +355,7 @@ Cruza **tu propia base** por rostro y devuelve los posibles **pares duplicados**
 | `limit` | int | `200` | Máx. de registros a recorrer (tope interno 500) |
 
 ```bash
-curl "https://reportavnzla.com/fr-api/v1/duplicates?source=reportavnzla&min_score=0.6&limit=300" \
+curl "https://fr-api.reportavnzla.com:8443/v1/duplicates?source=reportavnzla&min_score=0.6&limit=300" \
   -H "X-API-Key: TU_CLAVE"
 ```
 
@@ -414,11 +419,11 @@ en los que la misma persona aparece en plataformas diferentes.
 
 ```bash
 # Conciliar todas las fuentes (umbral 0.5, hasta 300 puntos)
-curl "https://reportavnzla.com/fr-api/v1/reconcile?min_score=0.5&limit=300" \
+curl "https://fr-api.reportavnzla.com:8443/v1/reconcile?min_score=0.5&limit=300" \
   -H "X-API-Key: TU_CLAVE"
 
 # Conciliar SOLO entre dos fuentes concretas
-curl "https://reportavnzla.com/fr-api/v1/reconcile?sources=azure,reportavnzla&min_score=0.55&limit=800" \
+curl "https://fr-api.reportavnzla.com:8443/v1/reconcile?sources=azure,reportavnzla&min_score=0.55&limit=800" \
   -H "X-API-Key: TU_CLAVE"
 ```
 
@@ -498,7 +503,7 @@ Lista de grupos (proxy a la fuente externa de datos). Útil para navegar y revis
 | `q` | string | `""` | Texto de búsqueda opcional |
 
 ```bash
-curl "https://reportavnzla.com/fr-api/v1/groups?limit=20&offset=0&q=mendoza" \
+curl "https://fr-api.reportavnzla.com:8443/v1/groups?limit=20&offset=0&q=mendoza" \
   -H "X-API-Key: TU_CLAVE"
 ```
 
@@ -515,7 +520,7 @@ las caras de cada foto (aunque haya varias personas), las agrupa en "personas"
 aparece. Las imágenes **sin rostro** se separan para verificación manual.
 
 ```bash
-curl "https://reportavnzla.com/fr-api/v1/groups/g-0007/cluster" \
+curl "https://fr-api.reportavnzla.com:8443/v1/groups/g-0007/cluster" \
   -H "X-API-Key: TU_CLAVE"
 ```
 
@@ -591,7 +596,7 @@ El cruce entre plataformas (`/v1/check-duplicate`, `/v1/reconcile`,
 Ejemplo mínimo de ingesta de un registro nuevo (servidor-a-servidor):
 
 ```bash
-curl -X POST https://reportavnzla.com/fr-api/v1/index \
+curl -X POST https://fr-api.reportavnzla.com:8443/v1/index \
   -H "X-API-Key: TU_CLAVE" \
   -F "external_id=$ID_EN_TU_BD" \
   -F "source=tu-plataforma" \
