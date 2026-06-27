@@ -482,6 +482,9 @@ export default function FRDevelopersPage() {
             <a href="/fr-doctor.py" download className="border-2 border-red-700 text-red-700 px-6 py-2 rounded-lg font-semibold hover:bg-red-50 transition">
               ⬇ fr-doctor.py (diagnóstico)
             </a>
+            <a href="/fr-backfill.mjs" download className="border-2 border-red-700 text-red-700 px-6 py-2 rounded-lg font-semibold hover:bg-red-50 transition">
+              ⬇ fr-backfill.mjs (subir tu BD)
+            </a>
             <a href="/api/fr/openapi" download className="border-2 border-red-700 text-red-700 px-6 py-2 rounded-lg font-semibold hover:bg-red-50 transition">
               ⬇ OpenAPI (JSON)
             </a>
