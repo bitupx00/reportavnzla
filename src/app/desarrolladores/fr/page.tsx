@@ -68,6 +68,18 @@ const RESP_CHECK = `{
   ]
 }`
 
+const RESP_FACES = `{
+  "ok": true, "faces_detected": 2, "min_score": 0.51,
+  "possible_duplicate": true,
+  "faces": [
+    { "bbox": [67,117,132,215], "matched": true,  "color": "green",
+      "best_score": 0.99, "band": "alta", "candidates": [ /* … */ ] },
+    { "bbox": [240,110,300,205], "matched": false, "color": "yellow",
+      "best_score": 0.0, "band": null, "candidates": [] }
+  ],
+  "candidates": [ /* coincidencias agregadas de todos los rostros, score >= 0.51 */ ]
+}`
+
 const CURL_INDEX = `# Sube/indexa UN registro de tu base. Idempotente por external_id (tu id).
 curl -X POST "${FR_BASE}/v1/index" \\
   -H "X-API-Key: TU_API_KEY" \\
@@ -366,7 +378,30 @@ export default function FRDevelopersPage() {
             <span className="rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-sm font-semibold">baja &lt; 0.35</span>
           </div>
           <p className="text-gray-500 text-sm mt-3">
-            Umbral por defecto del cotejo: 0.35. Empieza siempre la revisión por la banda alta.
+            <strong>Piso de 0.51:</strong> <code className="text-red-700">/v1/check-duplicate</code> y{' '}
+            <code className="text-red-700">/v1/search</code> solo devuelven coincidencias con{' '}
+            <code className="text-red-700">score ≥ 0.51</code> (trae solo lo más cercano). Puedes
+            ajustarlo por petición con <code className="text-red-700">?min_score=</code>.
+          </p>
+        </section>
+
+        {/* Multi-rostro y recuadros */}
+        <section className="bg-white rounded-xl p-8 shadow-sm border">
+          <H2>Multi-rostro y recuadros (verde / amarillo)</H2>
+          <p className="text-gray-600 mb-4">
+            Si la imagen tiene <strong>varias personas</strong>, se coteja <strong>cada rostro</strong>.
+            La respuesta de <code className="text-red-700">/v1/check-duplicate</code> y{' '}
+            <code className="text-red-700">/v1/search</code> incluye un arreglo{' '}
+            <code className="text-red-700">faces</code> con un elemento por rostro detectado, listo
+            para dibujar recuadros: <span className="font-semibold text-green-700">verde</span> si
+            coincide (≥ 0.51), <span className="font-semibold text-amber-600">amarillo</span> si no.
+          </p>
+          <CodeBlock>{RESP_FACES}</CodeBlock>
+          <p className="text-gray-500 text-sm mt-3">
+            <code className="text-red-700">bbox</code> = <code className="text-red-700">[x1,y1,x2,y2]</code>{' '}
+            en píxeles de la imagen enviada. <code className="text-red-700">matched</code>/<code className="text-red-700">color</code>{' '}
+            indican el recuadro; <code className="text-red-700">best_score</code> el mejor parecido de
+            ese rostro; <code className="text-red-700">candidates</code> sus coincidencias.
           </p>
         </section>
 
