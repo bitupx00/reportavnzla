@@ -33,7 +33,12 @@ export async function POST(req: Request) {
     })
     const body = await r.text()
     return new NextResponse(body, { status: r.status, headers: { 'content-type': 'application/json' } })
-  } catch {
-    return NextResponse.json({ ok: false, error: 'No se pudo conectar con el servicio de rostro.' }, { status: 502 })
+  } catch (err) {
+    const e = err as Error & { cause?: unknown }
+    const detail = e?.message ? `${e.name}: ${e.message}${e.cause ? ' | cause: ' + String(e.cause) : ''}` : String(err)
+    return NextResponse.json(
+      { ok: false, error: 'No se pudo conectar con el servicio de rostro.', detail, fr_url: FR_URL },
+      { status: 502 },
+    )
   }
 }
