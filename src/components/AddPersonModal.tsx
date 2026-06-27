@@ -22,6 +22,22 @@ async function searchAddress(query: string): Promise<GeoResult[]> {
   }
 }
 
+interface FRCandidate {
+  record_id: string
+  person_name: string | null
+  image_url: string | null
+  score: number
+  age?: number | null
+  last_seen_location?: string | null
+}
+interface FRCheck {
+  ok: boolean
+  possible_duplicate: boolean
+  best_score: number | null
+  message: string
+  candidates: FRCandidate[]
+}
+
 interface Props {
   isOpen: boolean
   onClose: () => void
@@ -32,6 +48,10 @@ export default function AddPersonModal({ isOpen, onClose, onSubmit }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fotoPreview, setFotoPreview] = useState<string | null>(null)
+  // Verificación facial anti-duplicado (al subir la foto)
+  const [frChecking, setFrChecking] = useState(false)
+  const [frResult, setFrResult] = useState<FRCheck | null>(null)
+  const [frDismissed, setFrDismissed] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -99,6 +119,9 @@ export default function AddPersonModal({ isOpen, onClose, onSubmit }: Props) {
     if (!isOpen) {
       formRef.current?.reset()
       setFotoPreview(null)
+      setFrResult(null)
+      setFrChecking(false)
+      setFrDismissed(false)
       setError('')
       setAddressQuery('')
       setAddressResults([])
@@ -111,11 +134,23 @@ export default function AddPersonModal({ isOpen, onClose, onSubmit }: Props) {
 
   const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (ev) => setFotoPreview(ev.target?.result as string)
-      reader.readAsDataURL(file)
-    }
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => setFotoPreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
+
+    // Antes de registrar: comparar la foto con los reportes existentes para
+    // evitar duplicar a la misma persona (reconocimiento facial).
+    setFrResult(null)
+    setFrDismissed(false)
+    setFrChecking(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fetch('/api/fr/check-duplicate', { method: 'POST', body: fd })
+      .then((r) => r.json())
+      .then((d: FRCheck) => { if (d && d.ok) setFrResult(d) })
+      .catch(() => {})
+      .finally(() => setFrChecking(false))
   }
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -324,6 +359,46 @@ export default function AddPersonModal({ isOpen, onClose, onSubmit }: Props) {
                   <div className="text-xs text-gray-400 mt-1">Subir foto</div>
                 </div>
               </label>
+            )}
+
+            {/* Verificación facial anti-duplicado */}
+            {frChecking && (
+              <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
+                <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin" />
+                Comparando con reportes existentes…
+              </div>
+            )}
+            {frResult?.possible_duplicate && !frDismissed && (
+              <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
+                <p className="font-semibold text-amber-800">Creemos que esta persona ya está registrada</p>
+                <p className="mt-0.5 text-sm text-amber-700">
+                  La foto coincide con un reporte existente. ¿Es la misma persona?
+                </p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {frResult.candidates.slice(0, 3).map((c) => (
+                    <div key={c.record_id} className="flex items-center gap-2 rounded-lg border border-amber-200 bg-white p-2">
+                      {c.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.image_url} alt="" className="h-12 w-12 rounded object-cover" />
+                      )}
+                      <div className="text-xs">
+                        <div className="font-medium text-gray-800">{c.person_name || 'Sin nombre'}</div>
+                        <div className="text-gray-500">{Math.round(c.score * 100)}% parecido</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" onClick={onClose}
+                    className="rounded-lg bg-gray-800 px-3 py-1.5 text-sm font-medium text-white">
+                    Sí, ya está registrada
+                  </button>
+                  <button type="button" onClick={() => setFrDismissed(true)}
+                    className="rounded-lg border border-amber-300 px-3 py-1.5 text-sm font-medium text-amber-800">
+                    No, es otra persona — continuar
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
