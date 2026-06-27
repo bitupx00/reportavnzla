@@ -374,15 +374,21 @@ export default function FRDevelopersPage() {
         <section className="bg-gradient-to-r from-red-50 to-rose-50 rounded-xl p-8 border">
           <H2>Documentación descargable</H2>
           <p className="text-gray-600 mb-6">
-            Importa el esquema OpenAPI en tu cliente (Postman, Insomnia, openapi-generator) o lee la
-            guía completa en Markdown.
+            Importa el esquema OpenAPI en tu cliente (Postman, Insomnia, openapi-generator), lee la
+            guía completa, o entrega la <strong>guía para agentes de IA</strong> a tu equipo: es un
+            archivo único con código de referencia (proxies, registro, backfill) para que un agente
+            de IA replique la integración. Guárdalo en tu repo como{' '}
+            <code className="text-red-700">AGENTS.md</code> o <code className="text-red-700">docs/FR-API.md</code>.
           </p>
           <div className="flex flex-wrap gap-4">
-            <a href="/api/fr/openapi" download className="bg-red-700 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-800 transition">
-              ⬇ Descargar OpenAPI (JSON)
+            <a href="/fr-api-agent-guide.md" download className="bg-red-700 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-800 transition">
+              ⬇ Guía para agentes de IA (Markdown)
+            </a>
+            <a href="/api/fr/openapi" download className="border-2 border-red-700 text-red-700 px-6 py-2 rounded-lg font-semibold hover:bg-red-50 transition">
+              ⬇ OpenAPI (JSON)
             </a>
             <a href="/fr-api-docs.md" download className="border-2 border-red-700 text-red-700 px-6 py-2 rounded-lg font-semibold hover:bg-red-50 transition">
-              ⬇ Descargar guía (Markdown)
+              ⬇ Guía detallada (Markdown)
             </a>
           </div>
         </section>
