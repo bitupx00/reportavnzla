@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 // Tolerante: si FR_API_URL viene sin esquema (p. ej. "host:8808"), le anteponemos
 // http:// para evitar el error "unknown scheme" de fetch. Quita slashes finales.
-const FR_RAW = process.env.FR_API_URL || 'http://201.189.205.53:8808'
+const FR_RAW = process.env.FR_API_URL || ''
 const FR_URL = (/^https?:\/\//i.test(FR_RAW) ? FR_RAW : `http://${FR_RAW}`).replace(/\/+$/, '')
 const FR_KEY = process.env.FR_API_KEY || ''
 

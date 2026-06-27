@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 // Tolerante: si FR_API_URL viene sin esquema (p. ej. "host:8808"), le
 // anteponemos http:// para evitar el error "unknown scheme" de fetch. Quita
 // los slashes finales para no duplicar "/".
-const FR_RAW = process.env.FR_API_URL || 'http://hbdesk.sytes.net:8808'
+const FR_RAW = process.env.FR_API_URL || ''
 const FR = (/^https?:\/\//i.test(FR_RAW) ? FR_RAW : `http://${FR_RAW}`).replace(/\/+$/, '')
 
 export async function GET() {
