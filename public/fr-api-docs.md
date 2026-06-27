@@ -134,16 +134,26 @@ reportar y responde si esa persona **probablemente YA está reportada** (en tu
 base o en cualquier otra fuente). Busca en **todo** el índice; cada candidato
 trae su `source` para que sepas de qué plataforma viene la coincidencia.
 
-**Body:** `multipart/form-data`
+**Body:** `multipart/form-data` — manda la imagen por **cualquier vía**:
 
 | Campo | Tipo | Req | Descripción |
 |---|---|:---:|---|
-| `file` | archivo | sí | Imagen JPG, PNG, WEBP o HEIC |
+| `file` | archivo | sí* | Imagen subida (*o* `image_url`) |
+| `image_url` | string | sí* | URL `http(s)` **o** data-URI base64 (`data:image/...;base64,...`) |
+| `min_score` | float | no | Piso por petición (query param; default 0.51) |
+
+Envía **`file` o `image_url`** (uno de los dos). Cualquier formato/extensión:
+JPG, PNG, WebP, BMP, **HEIC/HEIF** (se detecta por contenido).
 
 ```bash
+# por archivo
 curl -X POST https://fr-api.reportavnzla.com:8443/v1/check-duplicate \
   -H "X-API-Key: TU_CLAVE" \
   -F "file=@foto.jpg"
+# o por URL http
+curl -X POST https://fr-api.reportavnzla.com:8443/v1/check-duplicate \
+  -H "X-API-Key: TU_CLAVE" \
+  -F "image_url=https://tu-cdn/fotos/123.jpg"
 ```
 
 **Respuesta `200`:**
@@ -216,16 +226,20 @@ Campos de cada **candidate**: `record_id`, `group_id`, `person_name`, `age`,
 Búsqueda 1:N. Foto → **top-10 posibles coincidencias** colapsadas por persona
 (`group_id`), ordenadas por `score` descendente.
 
-**Body:** `multipart/form-data`
+**Body:** `multipart/form-data` — imagen por **cualquier vía** (igual que check-duplicate):
 
 | Campo | Tipo | Req | Descripción |
 |---|---|:---:|---|
-| `file` | archivo | sí | Imagen JPG, PNG, WEBP o HEIC |
+| `file` | archivo | sí* | Imagen subida (*o* `image_url`) |
+| `image_url` | string | sí* | URL `http(s)` **o** data-URI base64 |
+| `min_score` | float | no | Piso por petición (default 0.51) |
+
+Cualquier formato: JPG, PNG, WebP, HEIC…
 
 ```bash
 curl -X POST https://fr-api.reportavnzla.com:8443/v1/search \
   -H "X-API-Key: TU_CLAVE" \
-  -F "file=@foto.jpg"
+  -F "file=@foto.jpg"        # o  -F "image_url=https://..."
 ```
 
 **Respuesta `200`:**

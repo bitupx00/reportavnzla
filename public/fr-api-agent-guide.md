@@ -29,6 +29,29 @@ FR_API_KEY=__pidela_por_canal_privado__   # secreta; solo en el servidor
 - `FR_API_KEY`: tu clave. **Solo en el backend.** Nunca la pongas en código que
   corra en el navegador ni la hardcodees en el repo.
 
+## 1.5) Formas de enviar la imagen (acepta CUALQUIERA)
+
+`/v1/check-duplicate`, `/v1/search` y `/v1/index` aceptan la imagen por **cualquier
+método**, tú eliges el que tengas:
+
+| Tienes… | Manda… |
+|---|---|
+| Un archivo / bytes | `file` (multipart/form-data) |
+| Una **URL http(s)** (foto fetchable) | campo `image_url` con la URL |
+| Un **data-URI base64** (`data:image/...;base64,...`) | campo `image_url` con el data-URI |
+
+- **Formato/extensión:** da igual — JPG, PNG, WebP, BMP, **HEIC/HEIF**… se detecta por
+  contenido, no por extensión.
+- No mezcles: manda `file` **o** `image_url`, lo que tengas.
+- (Nota curl: si pasas un data-URI por línea de comandos usa `--form-string` para que el
+  `;` no se interprete; desde código/SDK no aplica.)
+
+**¿Qué ALMACENA el FR-API?** Solo el **embedding** (vector 512-d) + metadatos
+(`person_name`, `last_seen_location`, `source`, y el `image_url` que mandaste para
+**mostrar** el candidato). **No** guarda la foto en bruto ni consulta tu BD. Por eso, al
+**indexar** conviene que `image_url` sea una **URL http(s) pública** (para que los
+candidatos se vean); para **cotejar/buscar** (query) cualquier método sirve.
+
 ## 2) Convenciones obligatorias (NO las rompas)
 
 1. **Servidor-a-servidor.** El navegador llama a TU backend; TU backend llama al
