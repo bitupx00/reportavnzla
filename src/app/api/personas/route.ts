@@ -4,6 +4,7 @@ import { personas } from '@/db/schema'
 import { eq, ilike, or, and, sql, desc } from 'drizzle-orm'
 import { motivoRechazo } from '@/lib/antispam'
 import { rateLimit, getIp } from '@/lib/ratelimit'
+import { fixPhotoUrl } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -126,6 +127,29 @@ export async function POST(request: NextRequest) {
     }
 
     const [result] = await db().insert(personas).values(record).returning()
+
+    // Indexar en el FR-API (reconocimiento facial) para que futuras altas
+    // detecten este reporte por rostro. No bloquea ni falla el registro.
+    const fotoIndexable = fixPhotoUrl(record.fotoUrl)
+    if (result?.id && fotoIndexable) {
+      const raw = process.env.FR_API_URL || ''
+      const key = process.env.FR_API_KEY || ''
+      if (raw && key) {
+        const frUrl = (/^https?:\/\//i.test(raw) ? raw : `http://${raw}`).replace(/\/+$/, '')
+        const fd = new FormData()
+        fd.append('external_id', String(result.id))
+        fd.append('person_name', `${record.nombre ?? ''} ${record.apellido ?? ''}`.trim())
+        fd.append('last_seen_location', record.ultimaUbicacion ?? '')
+        fd.append('image_url', fotoIndexable)
+        fd.append('source', 'reportavnzla')
+        try {
+          const ctrl = new AbortController()
+          const t = setTimeout(() => ctrl.abort(), 8000)
+          await fetch(`${frUrl}/v1/index`, { method: 'POST', headers: { 'X-API-Key': key }, body: fd, signal: ctrl.signal })
+          clearTimeout(t)
+        } catch { /* el FR no debe romper el registro */ }
+      }
+    }
 
     return NextResponse.json(result, { status: 201 })
   } catch (error: any) {
