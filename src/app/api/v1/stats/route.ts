@@ -19,29 +19,34 @@ export async function OPTIONS() {
 // GET /api/v1/stats — public stats endpoint
 export async function GET() {
   try {
-    const [total, buscados, encontrados, fallecidos] = await Promise.all([
-      db().select({ count: sql<number>`count(*)::int` }).from(personas),
-      db().select({ count: sql<number>`count(*)::int` }).from(personas)
-        .where(sql`${personas.estado} = 'buscado'`),
-      db().select({ count: sql<number>`count(*)::int` }).from(personas)
-        .where(sql`${personas.estado} = 'encontrado'`),
-      db().select({ count: sql<number>`count(*)::int` }).from(personas)
-        .where(sql`${personas.estado} = 'fallecido'`),
-    ])
+    // Un solo query con agregación condicional (count FILTER) en vez de 4
+    // queries separadas: menos viajes a la BD y menos transferencia de datos.
+    const rows = await db()
+      .select({
+        total: sql<number>`count(*)::int`,
+        buscados: sql<number>`(count(*) filter (where ${personas.estado} = 'buscado'))::int`,
+        encontrados: sql<number>`(count(*) filter (where ${personas.estado} = 'encontrado'))::int`,
+        fallecidos: sql<number>`(count(*) filter (where ${personas.estado} = 'fallecido'))::int`,
+      })
+      .from(personas)
 
+    const r = rows[0]
     return NextResponse.json({
       success: true,
       data: {
-        total: total[0]?.count || 0,
-        buscados: buscados[0]?.count || 0,
-        encontrados: encontrados[0]?.count || 0,
-        fallecidos: fallecidos[0]?.count || 0,
+        total: r?.total ?? 0,
+        buscados: r?.buscados ?? 0,
+        encontrados: r?.encontrados ?? 0,
+        fallecidos: r?.fallecidos ?? 0,
       },
     }, { headers: corsHeaders })
   } catch (error: any) {
+    // No exponer el detalle de la BD/SQL al cliente (info disclosure); se loguea
+    // server-side para diagnóstico.
+    console.error('[GET /api/v1/stats] error:', error?.message || error)
     return NextResponse.json({
       success: false,
-      error: error.message,
+      error: 'No se pudieron obtener las estadísticas en este momento.',
     }, { status: 500, headers: corsHeaders })
   }
 }
