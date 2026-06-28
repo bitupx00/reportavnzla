@@ -22,13 +22,12 @@ terremoto de Venezuela. Permite a cualquier plataforma autorizada:
 https://fr-api.reportavnzla.com:8443
 ```
 
-TLS con certificado válido (Let's Encrypt). Sin límite práctico de tamaño de
-imagen (admite fotos de varias decenas de MB). Docs interactivas: `GET /docs`
-(Swagger), `GET /redoc`. El esquema OpenAPI declara el candado por API key.
+TLS con certificado válido (Let's Encrypt). Manda las imágenes respetando los
+**límites de tamaño/resolución** (ver la sección siguiente).
 
 > **Alias** (opcional, para cargas pequeñas): `https://reportavnzla.com/fr-api`
 > — mismo API, pero pasa por el gateway y tiene **límite de 4.5 MB por archivo**.
-> Para fotos grandes usa siempre la Base URL principal de arriba.
+> Para fotos más grandes usa la Base URL principal de arriba (hasta 10 MB).
 
 ---
 
@@ -53,6 +52,51 @@ curl https://fr-api.reportavnzla.com:8443/v1/search \
 > *tu* servidor llama al FR-API con la clave. Así evitas exponer la clave, y
 > evitas CORS y mixed-content. (Ya implementado así en reportavnzla mediante un
 > route handler que reenvía el `multipart` al FR-API.)
+
+---
+
+## Límites de imagen y buenas prácticas
+
+Para que el cotejo funcione bien y rápido, envía las imágenes dentro de estos
+límites. Si te pasas, la API responde con un error claro (no se procesa).
+
+| Límite | Valor | Si te pasas |
+|---|---|---|
+| **Tamaño del archivo** | **≤ 10 MB** por petición (4.5 MB si usas el alias del gateway) | `413` — reduce el peso |
+| **Resolución** | **≤ 25 megapíxeles** en total (p. ej. hasta ~5000×5000) y **ningún lado > 8000 px** | `413 "Imagen demasiado grande"` — redimensiona |
+| **Rostros por imagen** | hasta 20 (las fotos grupales se cotejan rostro a rostro) | se procesan los 20 más grandes |
+
+**Formatos aceptados** (se detectan por *contenido*, no por la extensión):
+JPG, PNG, WebP, BMP, GIF y **HEIC/HEIF** (fotos de iPhone). No hace falta
+convertir nada antes de enviar.
+
+**Cómo enviar la imagen** (elige UNA vía):
+1. `file` — el archivo en `multipart/form-data`.
+2. `image_url` — una **URL `http(s)` pública y accesible desde internet**
+   (un CDN/bucket público). Debe poder descargarse sin login.
+3. `image_url` con **data-URI base64**: `data:image/jpeg;base64,<...>` (útil si ya
+   tienes los bytes en memoria; cuenta también para el límite de 10 MB).
+
+### Recomendaciones (qué SÍ conviene hacer)
+- **Redimensiona antes de enviar:** el modelo trabaja a ~640 px; una foto con el
+  lado mayor en **1000–1600 px** es ideal. Mandar imágenes enormes solo gasta
+  ancho de banda y CPU y arriesga el `413` — **no mejora** la precisión.
+- **Una cara nítida y de frente** da mejores coincidencias que una multitud lejana.
+- **Maneja los códigos de respuesta:** `413` (muy grande → redimensiona),
+  `429` (vas muy rápido → espera y reintenta), `401` (clave inválida/ausente),
+  `422` (no se detectó rostro — puedes seguir con el registro igual).
+- **Backfill / cargas masivas:** sube tus registros **a ritmo moderado**
+  (≈1–2 por segundo), no en ráfaga, para no chocar con el límite por minuto.
+- **Reutiliza el `external_id`:** `/v1/index` es idempotente por
+  `(source, external_id)` — reindexar actualiza, no duplica.
+
+### Qué NO hacer
+- No mandes imágenes de **>10 MB** o **>25 MP** esperando que se procesen: se rechazan.
+- No uses `image_url` apuntando a recursos **privados o internos** (no se descargan);
+  usa siempre una URL pública o sube el `file` directamente.
+- No pongas la **API key en el navegador**: llama al FR-API **desde tu backend**
+  (patrón servidor-a-servidor de arriba).
+- No trates una coincidencia como confirmación: **siempre** verificación humana.
 
 ---
 
@@ -181,7 +225,6 @@ curl -X POST https://fr-api.reportavnzla.com:8443/v1/check-duplicate \
       "person_name": "Katherine Mendoza",
       "age": 22,
       "last_seen_location": "Catia la Mar",
-      "contact_phone": null,
       "image_url": "https://tu-cdn/fotos/123.jpg",
       "source": "reportavnzla",
       "score": 0.97,
@@ -206,8 +249,13 @@ curl -X POST https://fr-api.reportavnzla.com:8443/v1/check-duplicate \
 | `candidates` | array | Coincidencias agregadas de todos los rostros, hasta 5, `score` desc |
 
 Campos de cada **candidate**: `record_id`, `group_id`, `person_name`, `age`,
-`last_seen_location`, `contact_phone`, `image_url`, `source`, `score` (float),
-`band` (string), `group_size` (int).
+`last_seen_location`, `image_url`, `source`, `score` (float), `band` (string),
+`group_size` (int).
+
+> **Privacidad:** el **teléfono de contacto NO se devuelve** en ninguna respuesta
+> de coincidencia (`check-duplicate`, `search`, `reconcile`…). Aunque lo envíes
+> al indexar, se guarda asociado al registro pero **nunca se expone** en los
+> resultados. Para contactar usa tu propio sistema, no la respuesta del FR-API.
 
 > **Multi-rostro:** si la imagen tiene varias personas, se coteja cada rostro y
 > el arreglo `faces` te dice cuál coincide (verde) y cuál no (amarillo), con su
@@ -261,7 +309,6 @@ curl -X POST https://fr-api.reportavnzla.com:8443/v1/search \
       "person_name": "José Pérez",
       "age": 34,
       "last_seen_location": "Maiquetía",
-      "contact_phone": "+58412...",
       "image_url": "https://…",
       "source": "azure",
       "score": 0.88,
@@ -303,7 +350,7 @@ tiene cara, responde `indexed: false` sin error (no rompe tu registro).
 | `person_name` | string | no | Nombre para mostrar en candidatos |
 | `age` | string | no | Edad (se guarda como entero si es numérico) |
 | `last_seen_location` | string | no | Última ubicación conocida |
-| `contact_phone` | string | no | Teléfono de contacto |
+| `contact_phone` | string | no | Teléfono de contacto. Se **guarda** pero **nunca se devuelve** en respuestas de coincidencia (privacidad) |
 | `source` | string | no | Etiqueta de tu plataforma (default: la de tu API key) |
 | `persist` | string | no | `"true"`/`"false"`. Default `"true"` (ver `/v1/index/commit`) |
 
@@ -480,7 +527,6 @@ curl "https://fr-api.reportavnzla.com:8443/v1/reconcile?sources=azure,reportavnz
           "person_name": "José Pérez",
           "age": 34,
           "last_seen_location": "Maiquetía",
-          "contact_phone": "+58412...",
           "image_url": "https://azure-cdn/…/88.jpg"
         },
         {
@@ -489,7 +535,6 @@ curl "https://fr-api.reportavnzla.com:8443/v1/reconcile?sources=azure,reportavnz
           "person_name": "Jose P.",
           "age": null,
           "last_seen_location": "La Guaira",
-          "contact_phone": null,
           "image_url": "https://tu-cdn/fotos/512.jpg"
         }
       ]
@@ -514,8 +559,8 @@ Cada **group**:
 | `records` | array | Un registro por aparición, **con su `image_url` de cada base** |
 
 Cada **record** dentro de un grupo:
-`record_id`, `source`, `person_name`, `age`, `last_seen_location`,
-`contact_phone`, `image_url`.
+`record_id`, `source`, `person_name`, `age`, `last_seen_location`, `image_url`.
+(El teléfono no se incluye — ver nota de privacidad arriba.)
 
 > **Solo se incluyen grupos que abarcan >=2 fuentes distintas.** Compara
 > visualmente las `image_url` de cada base junto a los datos para confirmar (o
@@ -573,7 +618,7 @@ curl "https://fr-api.reportavnzla.com:8443/v1/groups/g-0007/cluster" \
       "members": [
         {
           "record_id": "…", "person_name": "…", "age": 22,
-          "last_seen_location": "…", "contact_phone": null,
+          "last_seen_location": "…",
           "image_url": "https://…", "duplicate_role": "primary",
           "img_w": 800, "img_h": 600, "bbox": [120, 80, 320, 360],
           "score": 1.0, "det": 0.92
@@ -598,8 +643,8 @@ curl "https://fr-api.reportavnzla.com:8443/v1/groups/g-0007/cluster" \
 | `has_duplicates` | bool | Si el grupo tiene duplicados propuestos |
 
 Cada **member**: `record_id`, `person_name`, `age`, `last_seen_location`,
-`contact_phone`, `image_url`, `duplicate_role`, `img_w`, `img_h`,
-`bbox` (`[x1,y1,x2,y2]`), `score` (float), `det` (float).
+`image_url`, `duplicate_role`, `img_w`, `img_h`,
+`bbox` (`[x1,y1,x2,y2]`), `score` (float), `det` (float). (Sin teléfono.)
 
 **Errores:** `503` (modelo no cargado), `502` (fuente externa no responde).
 
@@ -649,8 +694,7 @@ API **stateless** sobre:
   Maneja millones de vectores con búsqueda sub-lineal, persistencia propia e
   ingesta concurrente sin locks en proceso.
 - **Redis** — rate-limit compartido entre todos los workers/instancias (ventana
-  fija por minuto). Si Redis cae, el límite hace *fail-open* (no bloquea tráfico
-  legítimo).
+  fija por minuto), con un mecanismo de respaldo que mantiene el límite vigente.
 - **Multi-worker** — varios workers/instancias detrás de un balanceador, todos
   contra el mismo Qdrant/Redis. Escala horizontal añadiendo nodos; el cuello de
   CPU (cálculo de embeddings faciales) se escala con más nodos o GPU.
@@ -668,3 +712,46 @@ estado de sesión que sincronizar.
   reenvíes a servicios de reconocimiento facial de terceros.
 - Úsalo únicamente para el fin previsto: ayudar a **reunificar** personas tras el
   terremoto. La decisión final sobre cualquier coincidencia es **siempre humana**.
+
+---
+
+## Descargo de responsabilidad
+
+> **Léelo antes de integrar.** Al usar el FR-API aceptas lo siguiente:
+
+1. **Herramienta asistiva, no identificación.** El FR-API entrega *posibles
+   coincidencias* basadas en similitud facial; **no afirma ni certifica** la
+   identidad de ninguna persona. Puede producir **falsos positivos** (señalar
+   como parecidas a personas distintas) y **falsos negativos** (no encontrar a
+   alguien que sí está). No es una prueba forense ni un dictamen pericial.
+
+2. **Verificación humana obligatoria.** Ninguna decisión que afecte a una persona
+   (contactar a una familia, confirmar una identidad, unir o separar reportes,
+   etc.) debe tomarse de forma automática a partir de la respuesta del API.
+   **Siempre** debe mediar la revisión y el criterio de una persona responsable.
+
+3. **Sin garantía.** El servicio se ofrece "tal cual" y "según disponibilidad",
+   sin garantías de exactitud, exhaustividad, continuidad ni adecuación a un fin
+   particular. Puede haber interrupciones, cambios o errores.
+
+4. **Responsabilidad del integrador.** Quien integra y opera el FR-API es el único
+   responsable del uso que da a los datos y a los resultados, incluyendo el
+   **cumplimiento de la ley aplicable** (protección de datos personales,
+   consentimiento, confidencialidad y derechos de las personas reportadas). El
+   FR-API es un componente técnico; **no sustituye** tus obligaciones legales.
+
+5. **Datos sensibles.** Las fotos, embeddings y coincidencias son datos personales
+   sensibles. No los publiques, no los reenvíes a terceros ni los uses para fines
+   distintos a la **reunificación** de personas tras el terremoto.
+
+6. **Limitación de responsabilidad.** En la máxima medida permitida por la ley, los
+   responsables del FR-API no asumen responsabilidad por daños directos o
+   indirectos derivados del uso o de la imposibilidad de uso del servicio, ni por
+   decisiones tomadas con base en sus resultados.
+
+7. **Uso indebido.** Queda prohibido usar el servicio para vigilancia, perfilado,
+   discriminación, acoso o cualquier fin ajeno a la reunificación humanitaria. El
+   acceso puede revocarse ante un uso indebido.
+
+*Este descargo es informativo y no constituye asesoría legal. Adapta los textos y
+avisos a tu jurisdicción y a las políticas de tu organización.*

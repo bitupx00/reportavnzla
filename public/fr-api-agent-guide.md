@@ -24,8 +24,8 @@ FR_API_URL=https://fr-api.reportavnzla.com:8443
 FR_API_KEY=__pidela_por_canal_privado__   # secreta; solo en el servidor
 ```
 
-- `FR_API_URL`: base URL (TLS; admite fotos grandes). Alias para cargas ≤4.5 MB:
-  `https://reportavnzla.com/fr-api`.
+- `FR_API_URL`: base URL (TLS; hasta **10 MB** y **25 MP** por imagen — ver §1.5).
+  Alias para cargas ≤4.5 MB: `https://reportavnzla.com/fr-api`.
 - `FR_API_KEY`: tu clave. **Solo en el backend.** Nunca la pongas en código que
   corra en el navegador ni la hardcodees en el repo.
 
@@ -40,8 +40,13 @@ método**, tú eliges el que tengas:
 | Una **URL http(s)** (foto fetchable) | campo `image_url` con la URL |
 | Un **data-URI base64** (`data:image/...;base64,...`) | campo `image_url` con el data-URI |
 
-- **Formato/extensión:** da igual — JPG, PNG, WebP, BMP, **HEIC/HEIF**… se detecta por
-  contenido, no por extensión.
+- **Formato/extensión:** da igual — JPG, PNG, WebP, BMP, GIF, **HEIC/HEIF**… se detecta
+  por contenido, no por extensión.
+- **Límites:** ≤ **10 MB** por archivo y ≤ **25 MP** (≈5000×5000, ningún lado > 8000 px);
+  si te pasas, responde `413`. **Redimensiona antes de enviar** (el modelo trabaja a
+  ~640 px; el lado mayor en 1000–1600 px es ideal y no pierdes precisión).
+- Para `image_url` usa una **URL pública accesible** (o un data-URI); no apuntes a
+  recursos internos/privados (no se descargan).
 - No mezcles: manda `file` **o** `image_url`, lo que tengas.
 - (Nota curl: si pasas un data-URI por línea de comandos usa `--form-string` para que el
   `;` no se interprete; desde código/SDK no aplica.)
@@ -56,7 +61,7 @@ candidatos se vean); para **cotejar/buscar** (query) cualquier método sirve.
 
 1. **Servidor-a-servidor.** El navegador llama a TU backend; TU backend llama al
    FR-API con `X-API-Key`. Crea rutas proxy; no llames al FR-API desde el cliente.
-2. **`X-API-Key`** en todas las rutas `/v1/*`. `/health` y `/openapi.json` son públicas.
+2. **`X-API-Key`** en todas las rutas `/v1/*`. `/health` es pública.
 3. **`source`** = etiqueta de tu plataforma. Al **indexar** se estampa (default =
    la etiqueta de tu key). Al **depurar** (`/v1/duplicates`) pasa **el mismo**
    `source`. Mantén un único valor de `source` consistente en todo tu código.
@@ -258,5 +263,18 @@ match) y **entrada** cuando depuras/concilias bases.
 ## 9) Referencia completa
 
 - Página de desarrolladores: https://reportavnzla.com/desarrolladores/fr
-- OpenAPI (JSON): https://reportavnzla.com/api/fr/openapi
 - Guía detallada (Markdown): https://reportavnzla.com/fr-api-docs.md
+
+## 10) Descargo de responsabilidad
+
+- **Asistivo, no identificación.** Devuelve *posibles* coincidencias por similitud
+  facial; **no certifica** identidades y puede dar falsos positivos/negativos.
+- **Verificación humana obligatoria** en toda decisión sobre una persona.
+- **Sin garantía** ("tal cual"/"según disponibilidad").
+- **El integrador es responsable** del uso de los datos y del **cumplimiento legal**
+  (protección de datos, consentimiento, confidencialidad).
+- **Datos sensibles:** úsalos solo para reunificación; no publiques ni cedas a terceros.
+- **Uso indebido** (vigilancia, perfilado, discriminación, acoso) está prohibido y
+  puede causar la revocación del acceso.
+
+*Informativo; no es asesoría legal. Adáptalo a tu jurisdicción.*

@@ -225,9 +225,11 @@ export default function FRDevelopersPage() {
           <H2>URL Base</H2>
           <div className="bg-gray-900 rounded-lg p-4 font-mono text-green-400 text-sm overflow-x-auto">{FR_BASE}</div>
           <ul className="text-gray-600 text-sm mt-3 space-y-1 list-disc pl-5">
-            <li>Todas las respuestas son JSON. OpenAPI público en <code className="text-red-700">{FR_BASE}/openapi.json</code>.</li>
-            <li>Soporta fotos grandes (decenas de MB). <strong>Alias</strong> para cargas pequeñas: <code className="text-red-700">{FR_ALIAS}</code> (límite 4.5 MB/archivo).</li>
-            <li><strong>Rate-limit:</strong> 120 peticiones/min por clave.</li>
+            <li>Todas las respuestas son JSON.</li>
+            <li><strong>Límite de imagen:</strong> hasta <strong>10 MB</strong> por archivo y <strong>25 megapíxeles</strong> (≈5000×5000, ningún lado &gt; 8000 px). Más grande → <code className="text-red-700">413</code>; redimensiona antes de enviar (el modelo trabaja a ~640 px).</li>
+            <li><strong>Formatos:</strong> JPG, PNG, WebP, BMP, GIF, HEIC/HEIF (se detecta por contenido).</li>
+            <li><strong>Alias</strong> para cargas pequeñas: <code className="text-red-700">{FR_ALIAS}</code> (límite 4.5 MB/archivo).</li>
+            <li><strong>Rate-limit:</strong> 120 peticiones/min por clave (pacéalo; el backfill ≈1–2/seg).</li>
           </ul>
         </section>
 
@@ -238,8 +240,7 @@ export default function FRDevelopersPage() {
             Las rutas <code className="text-red-700">/v1/*</code> requieren API key en el header{' '}
             <code className="text-red-700">X-API-Key</code>. <strong>Nunca</strong> la incluyas en
             código que corra en el navegador: llama al FR-API <strong>desde tu servidor</strong>
-            (patrón servidor-a-servidor). Las rutas <code className="text-red-700">/health</code> y{' '}
-            <code className="text-red-700">/openapi.json</code> son públicas.
+            (patrón servidor-a-servidor). La ruta <code className="text-red-700">/health</code> es pública.
           </p>
           <CodeBlock>{`X-API-Key: TU_API_KEY`}</CodeBlock>
         </section>
@@ -469,10 +470,9 @@ export default function FRDevelopersPage() {
         <section className="bg-gradient-to-r from-red-50 to-rose-50 rounded-xl p-8 border">
           <H2>Documentación descargable</H2>
           <p className="text-gray-600 mb-6">
-            Importa el esquema OpenAPI en tu cliente (Postman, Insomnia, openapi-generator), lee la
-            guía completa, o entrega la <strong>guía para agentes de IA</strong> a tu equipo: es un
-            archivo único con código de referencia (proxies, registro, backfill) para que un agente
-            de IA replique la integración. Guárdalo en tu repo como{' '}
+            Lee la guía detallada, o entrega la <strong>guía para agentes de IA</strong> a tu equipo:
+            es un archivo único con código de referencia (proxies, registro, backfill) para que un
+            agente de IA replique la integración. Guárdalo en tu repo como{' '}
             <code className="text-red-700">AGENTS.md</code> o <code className="text-red-700">docs/FR-API.md</code>.
           </p>
           <div className="flex flex-wrap gap-4">
@@ -485,13 +485,24 @@ export default function FRDevelopersPage() {
             <a href="/fr-backfill.mjs" download className="border-2 border-red-700 text-red-700 px-6 py-2 rounded-lg font-semibold hover:bg-red-50 transition">
               ⬇ fr-backfill.mjs (subir tu BD)
             </a>
-            <a href="/api/fr/openapi" download className="border-2 border-red-700 text-red-700 px-6 py-2 rounded-lg font-semibold hover:bg-red-50 transition">
-              ⬇ OpenAPI (JSON)
-            </a>
             <a href="/fr-api-docs.md" download className="border-2 border-red-700 text-red-700 px-6 py-2 rounded-lg font-semibold hover:bg-red-50 transition">
               ⬇ Guía detallada (Markdown)
             </a>
           </div>
+        </section>
+
+        {/* Descargo de responsabilidad */}
+        <section className="bg-amber-50 rounded-xl p-8 border border-amber-200">
+          <H2>Descargo de responsabilidad</H2>
+          <ul className="text-gray-700 text-sm space-y-2 list-disc pl-5">
+            <li><strong>Herramienta asistiva, no identificación.</strong> El FR-API entrega <em>posibles</em> coincidencias por similitud facial; <strong>no certifica</strong> ninguna identidad y puede dar falsos positivos y falsos negativos. No es prueba forense.</li>
+            <li><strong>Verificación humana obligatoria.</strong> Ninguna decisión sobre una persona (contactar a una familia, confirmar identidad, unir/separar reportes) debe tomarse de forma automática con la respuesta del API.</li>
+            <li><strong>Sin garantía.</strong> El servicio se ofrece &quot;tal cual&quot; y &quot;según disponibilidad&quot;, sin garantías de exactitud, continuidad ni adecuación a un fin particular.</li>
+            <li><strong>Responsabilidad del integrador.</strong> Quien integra y opera el API es responsable del uso de los datos y del <strong>cumplimiento de la ley aplicable</strong> (protección de datos, consentimiento, confidencialidad). El FR-API no sustituye tus obligaciones legales.</li>
+            <li><strong>Datos sensibles.</strong> Fotos, embeddings y coincidencias son datos personales sensibles: úsalos solo para la <strong>reunificación</strong> tras el terremoto, no los publiques ni los cedas a terceros.</li>
+            <li><strong>Uso indebido.</strong> Prohibido para vigilancia, perfilado, discriminación o acoso. El acceso puede revocarse. En la máxima medida legal, los responsables del FR-API no asumen responsabilidad por decisiones tomadas con base en sus resultados.</li>
+          </ul>
+          <p className="text-gray-500 text-xs mt-4">Texto informativo; no es asesoría legal. Adáptalo a tu jurisdicción y a las políticas de tu organización.</p>
         </section>
       </div>
     </div>
